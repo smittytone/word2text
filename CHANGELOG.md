@@ -1,6 +1,6 @@
 ## Release Notes ##
 
-- 0.4.1 *Unreleased*
+- 0.4.1 *16 November 2026*
     - Fix sub-list indentation, and add bullets to Psion Word version on conversion.
     - Clean out unused code.
     - Update to Clicore 0.9.0.
