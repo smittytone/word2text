@@ -1,4 +1,4 @@
-# Word2Text 0.4.1
+# Word2Text 0.4.2
 
 Convert Psion Series 3, 3a and 3c unencrypted *Word* Documents to Plain Text or Markdown. And back again.
 
@@ -227,10 +227,6 @@ func printLog(_ note: Notification) {
     print(message)
 }
 ```
-
-## Known Issues
-
-* ~~~Nested lists do not survive conversion to *Word* and back to Markdown.~~~
 
 ## Version Management
 
