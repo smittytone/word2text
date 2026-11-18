@@ -21,7 +21,7 @@ let package = Package(
         .executable(name: "word2text", targets: ["word2text"])
     ],
     dependencies: [
-        .package(url: "https://github.com/smittytone/clicore", from: "0.9.0"),
+        .package(url: "https://github.com/smittytone/clicore", branch: "develop"),
     ],
     targets: [
         .executableTarget(
