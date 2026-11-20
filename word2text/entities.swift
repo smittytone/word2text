@@ -28,6 +28,29 @@ import Foundation
 
 
 /*
+    Word file processing error codes.
+    NOTE We require raw values for these, for output as stderr codes.
+*/
+public enum ProcessErrorKind: Int, Error {
+
+    case noError                                = 0
+    case badFile                                = 1
+    case badPsionFileType                       = 2
+    case badFileEncrypted                       = 3
+    case badRecordLengthFileInfo                = 4
+    case badRecordLengthPrinterConfig           = 5
+    case badRecordLengthStyleDefinition         = 6
+    case badRecordLengthEmphasisDefinition      = 7
+    case badRecordType                          = 8
+    case badFileMissingRecords                  = 9
+    case badTextTooLong                         = 10
+    case badFileNotUTF8                         = 11
+    case fileAlreadyExists                      = 12
+    case badConversionSource                    = 13
+}
+
+
+/*
     Structure to hold the outcome of a failed file processing operation.
     Supports `error.localizedDescription`.
 
@@ -72,6 +95,8 @@ public struct ProcessError: Error, LocalizedError {
                 return "Source file is not UTF-8"
             case .fileAlreadyExists:
                 return "Output file already exists -- use `--force to overwrite"
+            case .badConversionSource:
+                return "Incompatible input or output type selected"
         }
     }
 }
@@ -93,10 +118,40 @@ public struct ProcessSettings {
     // FROM 0.4.0
     public var reverseConversion: Bool      = false
     public var forceWrite: Bool             = false
+    // FROM 0.5.0
+    public var jobs: [Conversion]           = []
 
     public init() {
 
     }
+}
+
+
+/**
+ UNUSED FOR NOW
+ Conversion job record
+
+ FROM 0.x.0
+ */
+public struct Conversion {
+
+    public var sourceFilePath: String       = ""
+    public var inputType: ContentType        = .word3
+    public var outputType: ContentType       = .plainText
+}
+
+
+/*
+    Possible input and output content types for conversion.
+
+    FROM 0.5.0
+ */
+public enum ContentType {
+
+    case plainText
+    case markdown
+    case word3
+    case word5
 }
 
 
@@ -191,23 +246,23 @@ public struct PsionWordStyle {
 
     public var code: String                            = ""
     public var name: String                            = ""
-    public var isStyle: Bool                           = true      // `true` for a style, `false` for an emphasis
+    public var isStyle: Bool                           = true           // `true` for a style, `false` for an emphasis
     public var isUndeletable: Bool                     = false
     public var isDefault: Bool                         = false
     public var fontCode: Int                           = 0
     public var underlined: Bool                        = false
     public var bold: Bool                              = false
     public var italic: Bool                            = false
-    public var superScript: Bool                       = false     // Emphasis only
-    public var subScript: Bool                         = false     // Emphasis only
-    public var fontSize: Int                           = 10        // Multiple of 0.05
+    public var superScript: Bool                       = false          // Emphasis only
+    public var subScript: Bool                         = false          // Emphasis only
+    public var fontSize: Int                           = 10             // Multiple of 0.05
     public var inheritUnderline: Bool                  = false
     public var inheritBold: Bool                       = false
     public var inheritItalic: Bool                     = false
     public var inheritSuperScript: Bool                = false
     public var inheritSubScript: Bool                  = false
-    public var leftIndent: Int                         = 0         // This and all remaining members
-    public var rightIndent: Int                        = 0         // are Style only
+    public var leftIndent: Int                         = 0              // This and all remaining members
+    public var rightIndent: Int                        = 0              // are Style only
     public var firstIdent: Int                         = 0
     public var alignment: PsionWordAlignment           = .left
     public var lineSpacing: Int                        = 240
@@ -232,28 +287,6 @@ public struct PsionWordFormatBlock {
     // FROM
     public var style: PsionWordStyle?                   = nil
     public var emphasis: PsionWordStyle?                = nil
-}
-
-
-/*
-    Word file processing error codes.
-    NOTE We require raw values for these, for output as stderr codes.
-*/
-public enum ProcessErrorKind: Int, Error {
-
-    case noError                                = 0
-    case badFile                                = 1
-    case badPsionFileType                       = 2
-    case badFileEncrypted                       = 3
-    case badRecordLengthFileInfo                = 4
-    case badRecordLengthPrinterConfig           = 5
-    case badRecordLengthStyleDefinition         = 6
-    case badRecordLengthEmphasisDefinition      = 7
-    case badRecordType                          = 8
-    case badFileMissingRecords                  = 9
-    case badTextTooLong                         = 10
-    case badFileNotUTF8                         = 11
-    case fileAlreadyExists                      = 12
 }
 
 
@@ -330,6 +363,8 @@ public enum PsionWordRecordType: Int {
 
 /*
     Markdown formatting record.
+
+    FROM 0.4.0
  */
 struct MarkdownToken {
 
@@ -343,48 +378,48 @@ struct MarkdownToken {
 }
 
 
-struct Paragraph {
+/*
+    Internal conversion node to which all external source, currently
+    Word 3, Plain Text and Markdown. The focus is on Word 3, but other
+    items may need to be added if Word 5 support is brought on board.
 
-    var type: ParagraphType                     = .body
-    var spans: [Span]                           = []
-    var word3Style: PsionWordStyle?             = nil
+    FROM 0.5.0
+ */
+public struct Document {
+
+    var header: Paragraph?                      = nil
+    var footer: Paragraph?                      = nil
+    var paragraphs: [Paragraph]                 = []
 }
 
 
 /*
-    The paragraph-level style of a Paragraph.
+    Internal conversion paragraph entity. Word 3 focused for now.
 
-    Levels are 1-based and should be kept in the range 1-6 when Paragraphs are created.
-    Headers and footers are not types: their role comes from where they are stored in
-    a Document.
-*/
-public enum ParagraphType: Equatable {
+    FROM 0.5.0
+ */
+struct Paragraph {
 
-    case body
-    case heading(level: Int)                            // 1-6
-    case bulletItem(level: Int, bullet: Character?)     // 1-6; bullet taken from the source text, if any
-    case numberItem(level: Int, number: Int?)           // 1-6; number taken from the source text, if any
-
-    /*
-     For list items, whether the list is bulleted and the item's level; `nil` for other types
-     */
-    var listItem: (isBullet: Bool, level: Int)? {
-        switch self {
-            case .bulletItem(let level, _):
-                return (true, level)
-            case .numberItem(let level, _):
-                return (false, level)
-            case .body, .heading:
-                return nil
-        }
-    }
+    var type: ParagraphType                     = .body                 // Styling
+    var spans: [Span]                           = []                    // Array of text units, each of one or no empahsis
+    var word3Style: PsionWordStyle?             = nil                   // Word 3 Style name, if set
 }
 
 
+/*
+    Internal conversion text span entity. A span is a unit of text with zero or
+    more emphases (bold, italic, etc.).
+
+    The `markdowwn` computed property returns the Span text with embedded
+    Markdown formatting (see below).
+
+    FROM 0.5.0
+ */
 struct Span {
 
     var type: SpanType                          = .normal
     var text: String                            = ""
+
 
     /*
      The span's text with Markdown emphasis markers applied.
@@ -393,7 +428,8 @@ struct Span {
      won't recognise, say, `** bold**` as emphasis. Whitespace-only text gets no markers.
 
      NOTE Markdown has no underline, superscript or subscript, so these
-          emphases are not marked. Strikethrough uses the GFM `~~` extension.
+          emphases are not marked. Strikethrough uses the GFM `~~` extension. This may
+          not be used by all Markdown parsers/previewers.
      */
     var markdown: String {
 
@@ -423,12 +459,46 @@ struct Span {
 
 
 /*
-    The character-level emphases applied to a Span.
+    An internal conversion paragraph entity's style, with a focus on Markdown output.
 
-    An OptionSet, so emphases can be combined, eg. `[.bold, .underline]`. An empty set is
-    normal text.
-    Word 3 supports underline, bold, italic, superscript and subscript;
-    Word 5 adds strikethrough.
+    Levels are 1-based and should be kept in the range 1-6 when Paragraphs are created.
+    Headers and footers are not types: their role comes from where they are stored in
+    a Document.
+
+    FROM 0.5.0
+*/
+public enum ParagraphType: Equatable {
+
+    case body
+    case heading(level: Int)                                            // 1-6
+    case bulletItem(level: Int, bullet: Character?)                     // 1-6; bullet taken from the source text, if any
+    case numberItem(level: Int, number: Int?)                           // 1-6; number taken from the source text, if any
+
+
+    /*
+     For list items, whether the list is bulleted and the item's level; `nil` for other types
+     */
+    var listItem: (isBullet: Bool, level: Int)? {
+        switch self {
+            case .bulletItem(let level, _):
+                return (true, level)
+            case .numberItem(let level, _):
+                return (false, level)
+            case .body, .heading:
+                return nil
+        }
+    }
+}
+
+
+/*
+    An internal conversion span entity's character-level emphasis.
+
+    An OptionSet, so emphases can be combined, eg. `[.bold, .underline]`.
+    An empty set is normal text.
+    Word 3 supports underline, bold, italic, superscript and subscript; Word 5 adds strikethrough.
+
+    FROM 0.5.0
 */
 public struct SpanType: OptionSet, Hashable {
 
@@ -451,9 +521,32 @@ public struct SpanType: OptionSet, Hashable {
 }
 
 
-public struct Document {
+/*
+    Additional date required for conversion to Word 3 files.
 
-    var header: Paragraph?                      = nil
-    var footer: Paragraph?                      = nil
-    var paragraphs: [Paragraph]                 = []
+    Includes footer and header format strings, and
+    the printer driver library recorded in the file. Word takes its available fonts
+    from this driver, so it must be one the target device has. If it isn't, Word
+    falls back to fixed-pitch Courier when the file is opened. Defaults to the
+    Series 3a ROM's Canon BubbleJet driver.
+
+    FROM 0.5.0
+ */
+public struct Word3Data {
+
+    public var header: String                   = ""                    // Format string
+    public var footer: String                   = "%P"                  // Format string
+    public var printerDriver: String            = "ROM::BJ.WDR"         // Driver name in Psion Series 3 ROM.
+
+
+    public init() {
+
+    }
+
+    public init(header: String, footer: String, printerDriver: String) {
+
+        self.header = header
+        self.footer = footer
+        self.printerDriver = printerDriver
+    }
 }

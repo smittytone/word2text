@@ -182,28 +182,6 @@ extension PsionWord {
     }
 
 
-    /**
-     Swap a CP 850 for a CP 1252.
-
-     Covers every CP 850 character that CP 1252 can represent: all of the
-     CP 850 accented letters and symbols, which sit at their Latin-1 code points
-     in CP 1252, plus ƒ. Box-drawing and other characters absent from CP 1252
-     (eg. `ı`, `‗`, `■`) still become `?`.
-
-     REVISED 0.4.0
-
-     - Parameters:
-        - char: A CP 850 integer value (0x80-0xFF).
-
-     - Returns: The equivalent 1252 code.
-     */
-    internal static func charSwap(_ char: UInt8) -> UInt8 {
-
-        guard char >= 0x80 else { return char }
-        return cp850ToCp1252[Int(char) - 0x80]
-    }
-
-
     /*
      CP 1252 equivalents of CP 850 bytes 0x80-0xFF, derived from `cp850UpperHalf`
      */
@@ -221,6 +199,20 @@ extension PsionWord {
     }
 
 
+    /**
+     Replace Windows line endings with normalised Unix endings.
+
+     - Parameters:
+        - text: The source text.
+
+     - Returns: The normalised version of the source.
+     */
+    internal static func normalise(_ text: String) -> String {
+
+        return text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+    }
+
+
     // MARK: - Misc.
 
     /**
@@ -232,27 +224,14 @@ extension PsionWord {
 
      - Returns: The combined span.
     */
-    internal static func combineSpans(_ spans: [Span], _ toMarkdown: Bool = false) -> String {
+    internal static func combineSpans(_ spans: [Span], _ outputType: ContentType = .plainText) -> String {
 
         var spanText = ""
         for span in spans {
-            spanText += toMarkdown ? span.markdown : span.text
+            spanText += outputType == .markdown ? span.markdown : span.text
         }
 
         return spanText
-    }
-
-
-    /**
-     Determine the longest length of two substrings.
-     */
-    internal static func greater(_ a: Substring, _ b: Substring) -> String {
-
-        if a.count > b.count {
-            return String(a)
-        }
-
-        return String(b)
     }
 
 

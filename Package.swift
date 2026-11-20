@@ -21,7 +21,7 @@ let package = Package(
         .executable(name: "word2text", targets: ["word2text"])
     ],
     dependencies: [
-        .package(url: "https://github.com/smittytone/clicore", branch: "develop"),
+        .package(url: "https://github.com/smittytone/clicore", from: "0.9.1"),
     ],
     targets: [
         .executableTarget(
@@ -36,10 +36,15 @@ let package = Package(
                 "Info.plist",
                 "swift.plist",
                 "logging_lib.swift",
+                "lib/entities.swift",
+                "lib/utilities.swift",
                 "lib/logging_lib.swift",
                 "lib/convert_word.swift",
                 "lib/convert_markdown.swift",
-                "lib/entities.swift"
+                "lib/markdown_to_document.swift",
+                "lib/word_to_document.swift",
+                "lib/document_to_markdown.swift",
+                "lib/document_to_word.swift"
             ],
             linkerSettings: [
                 // Embed `swift.plist` into the __TEXT,__info_plist Mach-O section so the binary
@@ -61,10 +66,14 @@ let package = Package(
             sources: [
                 // Just include the files needed for macOS lib usage
                 "entities.swift",
+                "utilities.swift",
+                "logging_lib.swift",
                 "convert_word.swift",
                 "convert_markdown.swift",
-                "logging_lib.swift",
-                "utilities.swift"
+                "markdown_to_document.swift",
+                "word_to_document.swift",
+                "document_to_markdown.swift",
+                "document_to_word.swift"
             ]
         )
     ]

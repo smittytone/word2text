@@ -144,7 +144,7 @@ struct Word2Text {
      */
     internal static func processPaths(_ paths: [String], _ toPsion: Bool = false) -> [String] {
 
-        let supportedExtensions = toPsion ? ["TXT", "MD", "MARKDOWN"] : ["WRD"]
+        let supportedExtensions = toPsion ? ["TEXT", "TXT", "MD", "MARKDOWN", "MDOWN"] : ["WRD"]
         var validFiles: [String] = []
         for path in paths {
             let absolutePath = Path.getFullPath(path)
@@ -201,8 +201,6 @@ struct Word2Text {
     /**
      Process a sequence of Psion WRD or Text/Markdown files.
 
-     UPDATED 0.4.0
-
      - Parameters:
         - settings: The processing preferences.
      */
@@ -215,19 +213,28 @@ struct Word2Text {
                 case .success(let data):
                     if settings.reverseConversion {
                         // Convert text or Markdown to WRD
-                        guard let markdown = String(bytes: data, encoding: .utf8) else {
+                        guard let sourceText = String(bytes: data, encoding: .utf8) else {
                             outputWord(.failure(ProcessError(code:.badFileNotUTF8)), settings, filepath)
                             continue
                         }
 
+                        // FROM 0.5.0 -- Check file extension
+                        let sourceType: ContentType = (filepath as NSString).pathExtension.uppercased().hasPrefix("T") ? .plainText : .markdown
+
+                        // FROM 0.5.0 -- Check filename size
+                        let name = URL(fileURLWithPath: filepath).deletingPathExtension().lastPathComponent
+                        if name.count > 8 {
+                            Stdio.reportWarning("The output filename (\(name.uppercased()).WRD) is longer than the 8.3 format allowed by Word 3 -- truncate before transferring to your device")
+                        }
+
                         let result: Result<Data, ProcessError> = !data.isEmpty
-                        ? PsionWord.generateFile(fromMarkdown: markdown)
+                        ? PsionWord.encodeWord3(sourceText, sourceType)  // PASS IN SETTINGS FOR LOGGING!!!
                         : .failure(ProcessError(code: .badFile))
                         outputWord(result, settings, filepath)
                     } else {
                         // Convert WRD to text or Markdown
                         let result: Result<String, ProcessError> = !data.isEmpty
-                        ? PsionWord.decodeWordFile(data, filepath, settings)
+                        ? PsionWord.decodeWord3(data, filepath, settings)
                         : .failure(ProcessError(code: .badFile))
                         outputText(result, settings, filepath)
                     }
@@ -269,7 +276,7 @@ struct Word2Text {
                         return
                     }
                 }
-                
+
                 let outFileURL = URL(fileURLWithPath: outFilePath)
                 do {
                     try fileData.write(to: outFileURL)

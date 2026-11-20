@@ -95,7 +95,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
            let data = try Data(contentsOf: URL(filePath: wordFilePath))
            var settings = ProcessSettings()
            settings.returnMarkdown = true
-           let result = PsionWord.processFile(data, settings, wordFilePath)
+           let bytes = [UInt8](data)
+           let result = PsionWord.decodeWord3(bytes[...], wordFilePath, settings)
 
            switch result {
                case .failure(let error):
