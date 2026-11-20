@@ -119,6 +119,8 @@ public struct ProcessSettings {
     public var reverseConversion: Bool      = false
     public var forceWrite: Bool             = false
     // FROM 0.5.0
+    public var fixName: Bool                = false
+    // FROM TBD
     public var jobs: [Conversion]           = []
 
     public init() {

@@ -221,12 +221,6 @@ struct Word2Text {
                         // FROM 0.5.0 -- Check file extension
                         let sourceType: ContentType = (filepath as NSString).pathExtension.uppercased().hasPrefix("T") ? .plainText : .markdown
 
-                        // FROM 0.5.0 -- Check filename size
-                        let name = URL(fileURLWithPath: filepath).deletingPathExtension().lastPathComponent
-                        if name.count > 8 {
-                            Stdio.reportWarning("The output filename (\(name.uppercased()).WRD) is longer than the 8.3 format allowed by Word 3 -- truncate before transferring to your device")
-                        }
-
                         let result: Result<Data, ProcessError> = !data.isEmpty
                         ? PsionWord.encodeWord3(sourceText, sourceType)  // PASS IN SETTINGS FOR LOGGING!!!
                         : .failure(ProcessError(code: .badFile))
@@ -265,7 +259,7 @@ struct Word2Text {
                 }
             case .success(let fileData):
                 // Output to a file: generate the name and extension
-                let outFilePath = (sourceFilePath as NSString).deletingPathExtension + ".wrd"
+                let outFilePath = checkWord3Filename(sourceFilePath, settings.fixName)
                 if FileManager.default.fileExists(atPath: outFilePath) && !settings.forceWrite {
                     let errorMessage = "File \(outFilePath) already exists -- use `--force` to overwrite"
                     let errCode: ProcessErrorKind = .fileAlreadyExists
@@ -345,4 +339,68 @@ struct Word2Text {
                 }
         }
     }
+
+
+    /**
+     Check a proposed output filename meets the Psion 3 specification. Optionally, convert an
+     incompatible name to one that is, i.e., eight alpha or numeric characters with no initial
+     number.
+
+     FROM 0.5.0
+
+     - Parameters:
+        - path: The output file's full path.
+        - fixName: Convert the name if `true`, otherwise issue a warning.
+
+     - Returns: A converted name suffixed `.WRD`. The filename will always be uppercase.
+     */
+    internal static func checkWord3Filename(_ path: String, _ fixName: Bool) -> String {
+
+        var outFileURL = URL(fileURLWithPath: path).deletingPathExtension()
+        var name = outFileURL.lastPathComponent.uppercased()
+        var lastChange = ""
+
+        if name.rangeOfCharacter(from: CharacterSet.alphanumerics.inverted) != nil {
+            if fixName {
+                while let badRange = name.rangeOfCharacter(from: CharacterSet.alphanumerics.inverted) {
+                    name = name.replacingCharacters(in: badRange, with: "")
+                }
+
+                lastChange = "removing characters from name"
+            } else {
+                lastChange = "rename before transferring to your device"
+            }
+
+            Stdio.reportWarning("The output filename (\(name).WRD) contains non-alphanumeric characters, which is not allowed by Word 3 -- \(lastChange)")
+        }
+
+        if name.prefix(1).rangeOfCharacter(from: .decimalDigits) != nil {
+            if fixName {
+                while let badRange = name.rangeOfCharacter(from: .decimalDigits) {
+                    name = name.replacingCharacters(in: badRange, with: "")
+                }
+
+                lastChange = "removing nummbers from start of name"
+            } else {
+                lastChange = "rename before transferring to your device"
+            }
+
+            Stdio.reportWarning("The output filename (\(name).WRD) starts with a number, which is not allowed by Word 3 -- \(lastChange)")
+        }
+
+        if name.count > 8 {
+            if fixName {
+                name = String(name.prefix(8))
+                lastChange = "trauncating name"
+            } else {
+                lastChange = "truncate before transferring to your device"
+            }
+
+            Stdio.reportWarning("The output filename (\(name).WRD) is longer than the 8.3 format allowed by Word 3 -- \(lastChange)")
+        }
+
+        outFileURL = outFileURL.deletingLastPathComponent()
+        return outFileURL.path + "/\(name).WRD"
+    }
+
 }

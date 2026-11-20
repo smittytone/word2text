@@ -31,7 +31,7 @@ struct word2textTests {
     @Test func testProcessTextBadDataSizeUnder16Bytes() async throws {
 
         let bytes: [UInt8] = [UInt8](repeating: 0, count: 10)
-        switch PsionWord.processFile(bytes[...], "/sample/filepath", ProcessSettings()) {
+        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", ProcessSettings()) {
             case .failure(let error):
                 #expect(error.code == .badPsionFileType)
             case .success(_):
@@ -46,7 +46,7 @@ struct word2textTests {
         var bytes: [UInt8] = Array(preamble.utf8)
         bytes.append(contentsOf: [0, 0, 1])
         bytes.append(contentsOf: [UInt8](repeating: 0, count: 10))
-        switch PsionWord.processFile(bytes[...], "/sample/filepath", ProcessSettings()) {
+        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", ProcessSettings()) {
             case .failure(let error):
                 #expect(error.code == .badPsionFileType)
             case .success(_):
@@ -61,7 +61,7 @@ struct word2textTests {
         var bytes: [UInt8] = Array(preamble.utf8)
         bytes.append(contentsOf: [0, 0, 1])
         bytes.append(contentsOf: [UInt8](repeating: 0, count: 100))
-        switch PsionWord.processFile(bytes[...], "/sample/filepath", ProcessSettings()) {
+        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", ProcessSettings()) {
             case .failure(let error):
                 // This will exit with an 'encrypted' error
                 #expect(error.code == .badFileEncrypted)
@@ -77,7 +77,7 @@ struct word2textTests {
         var bytes: [UInt8] = Array(preamble.utf8)
         bytes.append(contentsOf: [0, 0, 0])
         bytes.append(contentsOf: [UInt8](repeating: 0, count: 24))
-        switch PsionWord.processFile(bytes[...], "/sample/filepath", ProcessSettings()) {
+        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", ProcessSettings()) {
             case .failure(let error):
                 // This will exit with an 'missing records' error
                 #expect(error.code == .badFileMissingRecords)
@@ -91,7 +91,7 @@ struct word2textTests {
 
         var bytes = buildHeader()
         bytes.append(contentsOf: [0, 99, 0, 0, 0, 0, 0, 0, 0])
-        switch PsionWord.processFile(bytes[...], "/sample/filepath", ProcessSettings()) {
+        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", ProcessSettings()) {
             case .failure(let error):
                 #expect(error.code == .badRecordType)
             case .success(_):
@@ -104,7 +104,7 @@ struct word2textTests {
 
         var bytes = buildHeader()
         bytes.append(contentsOf: [0, 1, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        switch PsionWord.processFile(bytes[...], "/sample/filepath", ProcessSettings()) {
+        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", ProcessSettings()) {
             case .failure(let error):
                 #expect(error.code == .badRecordLengthFileInfo)
             case .success(_):
@@ -118,7 +118,7 @@ struct word2textTests {
         // Build record
         var bytes = buildHeader()
         bytes.append(contentsOf: [0, 2, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        switch PsionWord.processFile(bytes[...], "/sample/filepath", ProcessSettings()) {
+        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", ProcessSettings()) {
             case .failure(let error):
                 #expect(error.code == .badRecordLengthPrinterConfig)
             case .success(_):
@@ -132,7 +132,7 @@ struct word2textTests {
         // Build record
         var bytes = buildHeader()
         bytes.append(contentsOf: [0, 6, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        switch PsionWord.processFile(bytes[...], "/sample/filepath", ProcessSettings()) {
+        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", ProcessSettings()) {
             case .failure(let error):
                 #expect(error.code == .badRecordLengthStyleDefinition)
             case .success(_):
@@ -146,7 +146,7 @@ struct word2textTests {
         // Build record
         var bytes = buildHeader()
         bytes.append(contentsOf: [0, 7, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        switch PsionWord.processFile(bytes[...], "/sample/filepath", ProcessSettings()) {
+        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", ProcessSettings()) {
             case .failure(let error):
                 #expect(error.code == .badRecordLengthStyleDefinition)
             case .success(_):
@@ -479,6 +479,59 @@ struct word2textTests {
         #expect(absFiles.count == 0)
     }
 
+
+    // MARK: - checkWord3Filename()
+    
+    @Test func testCheckWord3FilenameTooLong() async throws {
+
+        let file = "/Users/Gregory/Calendar/Fintlewoodlewix.txt"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/FINTLEWO.WRD")
+    }
+
+
+    @Test func testCheckWord3FilenameInitialNumeric() async throws {
+
+        let file = "/Users/Gregory/Calendar/1Fintlewoodlewix.txt"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/FINTLEWO.WRD")
+    }
+
+
+    @Test func testCheckWord3FilenameInitialNumerics() async throws {
+
+        let file = "/Users/Gregory/Calendar/12Fintlewoodlewix.txt"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/FINTLEWO.WRD")
+    }
+
+
+    @Test func testCheckWord3FilenameContainsNonAlpha() async throws {
+
+        let file = "/Users/Gregory/Calendar/F@ntlewoodlewix.txt"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/FNTLEWOO.WRD")
+    }
+
+
+    @Test func testCheckWord3FilenameContainsNonAlphas() async throws {
+
+        let file = "/Users/Gregory/Calendar/F_ntle.woodlewix.txt"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/FNTLEWOO.WRD")
+    }
+
+
+    @Test func testCheckWord3FilenameContainsSpaces() async throws {
+
+        let file = "/Users/Gregory/Calendar/Christopher Priest Dream Archipelago.md"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/CHRISTOP.WRD")
+    }
+
+
+
+    
     func returnTestFile() -> [UInt8] {
         var bytes: [UInt8] = []
         bytes.append(contentsOf: [80, 83, 73, 79, 78, 87, 80, 68, 65, 84, 65, 70, 73, 76, 69, 0, 1, 0, 0, 0, 234, 234, 234, 234, 234, 234, 234, 234, 234, 234, 234, 234, 234, 234, 234, 234, 234, 234, 0, 0, 1, 0, 10, 0, 54, 0, 25, 34, 0, 0, 8, 1, 2, 0, 2, 0, 58, 0, 130, 46, 198, 65, 8, 7, 8, 7, 114, 32, 182, 51, 208, 2, 208, 2, 0, 0, 0, 0, 1, 0, 255, 255, 0, 0, 0, 0, 240, 0, 0, 0, 0, 0, 0, 0, 240, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 0, 0, 0, 0, 0, 0, 0, 3, 0, 13, 0, 0, 82, 79, 77, 58, 58, 66, 74, 46, 87, 68, 82, 0, 4, 0, 1, 0, 0, 5, 0, 3, 0, 37, 80, 0, 6, 0, 80, 0, 66, 84, 66, 111, 100, 121, 32, 116, 101, 120, 116, 0, 32, 32, 32, 32, 32, 0, 6, 0, 24, 0, 0, 0, 240, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 240, 0, 0, 0, 240, 0, 0, 0, 9, 0, 8, 0, 208, 2, 0, 0, 160, 5, 0, 0, 112, 8, 0, 0, 64, 11, 0, 0, 16, 14, 0, 0, 224, 16, 0, 0, 176, 19, 0, 0, 128, 22, 0, 0, 6, 0, 80, 0, 72, 65, 72, 101, 97, 100, 105, 110, 103, 32, 65, 0, 32, 32, 32, 32, 32, 0, 0, 0, 24, 0, 2, 0, 224, 1, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 224, 1, 0, 0, 240, 0, 1, 0, 1, 0, 0, 0, 208, 2, 0, 0, 160, 5, 0, 0, 112, 8, 0, 0, 64, 11, 0, 0, 16, 14, 0, 0, 224, 16, 0, 0, 176, 19, 0, 0, 128, 22, 0, 0, 6, 0, 80, 0, 72, 66, 72, 101, 97, 100, 105, 110, 103, 32, 66, 0, 32, 32, 32, 32, 32, 0, 0, 0, 24, 0, 2, 0, 240, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 0, 0, 0, 120, 0, 1, 0, 2, 0, 0, 0, 208, 2, 0, 0, 160, 5, 0, 0, 112, 8, 0, 0, 64, 11, 0, 0, 16, 14, 0, 0, 224, 16, 0, 0, 176, 19, 0, 0, 128, 22, 0, 0, 6, 0, 80, 0, 66, 76, 66, 117, 108, 108, 101, 116, 101, 100, 32, 108, 105, 115, 116, 0, 32, 0, 0, 0, 255, 255, 0, 0, 240, 0, 0, 0, 208, 2, 0, 0, 104, 1, 3, 0, 240, 0, 0, 0, 240, 0, 0, 0, 9, 0, 1, 0, 208, 2, 0, 0, 160, 5, 0, 0, 112, 8, 0, 0, 64, 11, 0, 0, 16, 14, 0, 0, 224, 16, 0, 0, 176, 19, 0, 0, 128, 22, 0, 0, 7, 0, 28, 0, 78, 78, 78, 111, 114, 109, 97, 108, 0, 32, 32, 32, 32, 32, 32, 32, 32, 0, 7, 0, 255, 255, 0, 0, 0, 0, 7, 0, 7, 0, 28, 0, 85, 85, 85, 110, 100, 101, 114, 108, 105, 110, 101, 0, 32, 32, 32, 32, 32, 0, 1, 0, 255, 255, 1, 0, 0, 0, 6, 0, 7, 0, 28, 0, 66, 66, 66, 111, 108, 100, 0, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 0, 1, 0, 255, 255, 2, 0, 0, 0, 5, 0, 7, 0, 28, 0, 73, 73, 73, 116, 97, 108, 105, 99, 0, 32, 32, 32, 32, 32, 32, 32, 32, 0, 1, 0, 255, 255, 4, 0, 0, 0, 3, 0, 7, 0, 28, 0, 69, 69, 83, 117, 112, 101, 114, 115, 99, 114, 105, 112, 116, 0, 32, 32, 32, 0, 1, 0, 255, 255, 8, 0, 0, 0, 7, 0, 7, 0, 28, 0, 83, 83, 83, 117, 98, 115, 99, 114, 105, 112, 116, 0, 32, 32, 32, 32, 32, 0, 1, 0, 255, 255, 16, 0, 0, 0, 7, 0, 8, 0, 55, 0, 72, 101, 97, 100, 105, 110, 103, 0, 84, 104, 105, 115, 32, 105, 115, 32, 115, 111, 109, 101, 32, 98, 111, 108, 100, 32, 116, 101, 120, 116, 46, 0, 0, 84, 104, 105, 115, 32, 105, 115, 32, 112, 108, 97, 105, 110, 32, 116, 101, 120, 116, 46, 0, 0, 0, 9, 0, 54, 0, 8, 0, 72, 65, 78, 78, 13, 0, 66, 84, 78, 78, 4, 0, 66, 84, 66, 66, 7, 0, 66, 84, 78, 78, 1, 0, 66, 84, 78, 78, 20, 0, 66, 84, 78, 78, 1, 0, 66, 84, 78, 78, 1, 0, 66, 84, 78, 78, 1, 0, 66, 84, 78, 78])
