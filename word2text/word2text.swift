@@ -345,8 +345,9 @@ struct Word2Text {
 
     /**
      Check a proposed output filename meets the Psion 3 specification. Optionally, convert an
-     incompatible name to one that is, i.e., eight alpha or numeric characters with no initial
-     number.
+     incompatible name to one that is, i.e., up to eight ASCII letters (A-Z) or digits (0-9),
+     with no initial digit. Accented letters are converted to their unaccented equivalents.
+     A name with no allowed characters becomes `DOCUMENT`.
 
      FROM 0.5.0
 
@@ -359,46 +360,56 @@ struct Word2Text {
     internal static func checkWord3Filename(_ path: String, _ fixName: Bool) -> String {
 
         var outFileURL = URL(fileURLWithPath: path).deletingPathExtension()
+        let sourceName = outFileURL.lastPathComponent
         var name = outFileURL.lastPathComponent.uppercased()
         var lastChange = ""
 
-        if name.rangeOfCharacter(from: CharacterSet.alphanumerics.inverted) != nil {
-            if fixName {
-                while let badRange = name.rangeOfCharacter(from: CharacterSet.alphanumerics.inverted) {
-                    name = name.replacingCharacters(in: badRange, with: "")
-                }
+        // Word 3 filenames may only contain the ASCII letters A-Z and digits 0-9.
+        // NOTE `CharacterSet.alphanumerics` and `.decimalDigits` are not used as they
+        //      include non-ASCII letters and digits, eg. `É` and `١`
+        let isAllowed: (Character) -> Bool = { $0.isASCII && ($0.isLetter || $0.isNumber) }
+        let isDigit: (Character) -> Bool = { $0.isASCII && $0.isNumber }
 
+        if !name.allSatisfy(isAllowed) {
+            if fixName {
+                // Replace accented letters with their unaccented equivalents, eg. `É` becomes `E`,
+                // then remove any remaining disallowed characters
+                name = name.folding(options: .diacriticInsensitive, locale: nil).filter(isAllowed)
                 lastChange = "removing characters from name"
             } else {
                 lastChange = "rename before transferring to your device"
             }
 
-            Stdio.reportWarning("The output filename (\(name).WRD) contains non-alphanumeric characters, which is not allowed by Word 3 -- \(lastChange)")
+            Stdio.reportWarning("The output filename (\(sourceName)) contains non-alphanumeric characters, which is not allowed by Word 3 -- \(lastChange)")
         }
 
-        if name.prefix(1).rangeOfCharacter(from: .decimalDigits) != nil {
+        if let first = name.first, isDigit(first) {
             if fixName {
-                while let badRange = name.rangeOfCharacter(from: .decimalDigits) {
-                    name = name.replacingCharacters(in: badRange, with: "")
-                }
-
-                lastChange = "removing nummbers from start of name"
+                // Remove the leading digits only: digits later in the name are allowed
+                name = String(name.drop(while: isDigit))
+                lastChange = "removing numbers from start of name"
             } else {
                 lastChange = "rename before transferring to your device"
             }
 
-            Stdio.reportWarning("The output filename (\(name).WRD) starts with a number, which is not allowed by Word 3 -- \(lastChange)")
+            Stdio.reportWarning("The output filename (\(sourceName)) starts with a number, which is not allowed by Word 3 -- \(lastChange)")
         }
 
         if name.count > 8 {
             if fixName {
                 name = String(name.prefix(8))
-                lastChange = "trauncating name"
+                lastChange = "truncating name"
             } else {
                 lastChange = "truncate before transferring to your device"
             }
 
-            Stdio.reportWarning("The output filename (\(name).WRD) is longer than the 8.3 format allowed by Word 3 -- \(lastChange)")
+            Stdio.reportWarning("The output filename (\(sourceName)) is longer than the 8.3 format allowed by Word 3 -- \(lastChange)")
+        }
+
+        // Fixing may have removed every character, eg. from `2024` or `---`
+        if fixName && name.isEmpty {
+            name = "DOCUMENT"
+            Stdio.reportWarning("The output filename has no characters allowed by Word 3 -- using \(name).WRD")
         }
 
         outFileURL = outFileURL.deletingLastPathComponent()

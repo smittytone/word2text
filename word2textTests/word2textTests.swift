@@ -530,6 +530,54 @@ struct word2textTests {
     }
 
 
+    @Test func testCheckWord3FilenameInitialAndLaterNumerics() async throws {
+
+        let file = "/Users/Gregory/Calendar/1Report24.md"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/REPORT24.WRD")
+    }
+
+
+    @Test func testCheckWord3FilenameAccented() async throws {
+
+        let file = "/Users/Gregory/Calendar/Café Ñoño.md"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/CAFENONO.WRD")
+    }
+
+
+    @Test func testCheckWord3FilenameNonASCIIDigits() async throws {
+
+        let file = "/Users/Gregory/Calendar/١٢abc.md"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/ABC.WRD")
+    }
+
+
+    @Test func testCheckWord3FilenameAllNumeric() async throws {
+
+        let file = "/Users/Gregory/Calendar/2024.md"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/DOCUMENT.WRD")
+    }
+
+
+    @Test func testCheckWord3FilenameNoAllowedCharacters() async throws {
+
+        let file = "/Users/Gregory/Calendar/---.md"
+        let path = Word2Text.checkWord3Filename(file, true)
+        #expect(path == "/Users/Gregory/Calendar/DOCUMENT.WRD")
+    }
+
+
+    @Test func testCheckWord3FilenameNoFix() async throws {
+
+        let file = "/Users/Gregory/Calendar/1 Café.md"
+        let path = Word2Text.checkWord3Filename(file, false)
+        #expect(path == "/Users/Gregory/Calendar/1 CAFÉ.WRD")
+    }
+
+
 
     
     func returnTestFile() -> [UInt8] {
