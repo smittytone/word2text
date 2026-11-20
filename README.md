@@ -1,4 +1,4 @@
-# Word2Text 0.4.2
+# Word2Text 0.5.0
 
 Convert Psion Series 3, 3a and 3c unencrypted *Word* Documents to Plain Text or Markdown. And back again.
 
