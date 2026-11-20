@@ -262,14 +262,18 @@ struct Word2Text {
             case .success(let fileData):
                 // Output to a file: generate the name and extension
                 let outFilePath = checkWord3Filename(sourceFilePath, settings.fixName)
-                if FileManager.default.fileExists(atPath: outFilePath) && !settings.forceWrite {
-                    let errorMessage = "File \(outFilePath) already exists -- use `--force` to overwrite"
-                    let errCode: ProcessErrorKind = .fileAlreadyExists
-                    if settings.haltOnFirstError {
-                        Stdio.reportErrorAndExit(errorMessage, Int32(errCode.rawValue))
-                    } else {
-                        Stdio.reportWarning(errorMessage)
+                if FileManager.default.fileExists(atPath: outFilePath) {
+                    if !settings.forceWrite {
+                        let errorMessage = "File \(outFilePath) already exists -- use `--force` to overwrite"
+                        let errCode: ProcessErrorKind = .fileAlreadyExists
+                        if settings.haltOnFirstError {
+                            Stdio.reportErrorAndExit(errorMessage, Int32(errCode.rawValue))
+                        } else {
+                            Stdio.reportWarning(errorMessage)
+                        }
                         return
+                    } else {
+                        Stdio.reportWarning("File \(outFilePath) already exists -- overwriting (`--force` flag set)")
                     }
                 }
 
@@ -413,7 +417,11 @@ struct Word2Text {
         }
 
         outFileURL = outFileURL.deletingLastPathComponent()
-        return outFileURL.path + "/\(name).WRD"
+        if #available(macOS 13, *) {
+            return outFileURL.appending(component: "\(name).WRD", directoryHint: .notDirectory).path
+        } else {
+            return outFileURL.path + "/\(name).WRD"
+        }
     }
 
 }
