@@ -2,7 +2,8 @@
 
 - 0.5.0 *Unreleased*
     - Massively refactor the way `word2text` works, to enable support of other Psion formats in future.
-    - Check `.WRD` output files have a Psion-compatible name.
+    - Check if `.WRD` output files have a Psion-compatible name.
+    - Add the `--compatiblename`/`-c` CLI option to make output `.WRD` filenames Psion compatible automatically.
 - 0.4.2 *18 November 2026*
     - Fix ‘file does not exist’ conversion failures.
     - Update to Clicore 0.9.1.

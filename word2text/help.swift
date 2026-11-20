@@ -41,15 +41,17 @@ extension Word2Text {
                 word2text [-s] [-o] [-v] [-h] file(s)
 
             \(String(.bold))OPTIONS\(String(.normal))
-                -m | --markdown     Convert to Markdown format. Default: false (plain text output).
-                -o | --outer        Include outer Psion Word content (header and footer) in output.
-                -r | --reverse      Convert a plain text or Markdown file to a Psion Word file.
-                -s | --stop         Stop on first file that can't be converted. Default: false.
-                -f | --force        Overwrite an existing file. Default: false.
-                --stdout            Output generated plain text or Markdown (not .WRD) to stdout.
-                -v | --verbose      Show progress information. Otherwise only errors are shown.
-                -h | --help         This help screen.
-                --version           Show version information.
+                -m | --markdown         Convert to Markdown format. Default: false (plain text output).
+                -o | --outer            Include outer Psion Word content (header and footer) in output.
+                -r | --reverse          Convert a plain text or Markdown file to a Psion Word file.
+                -c | --compatiblename   When converting to Word 3, update the output .WRD filename to
+                                        be Psion 3 compatible.
+                -s | --stop             Stop on first file that can't be converted. Default: false.
+                -f | --force            Overwrite an existing file. Default: false.
+                --stdout                Output generated plain text or Markdown (not .WRD) to stdout.
+                -v | --verbose          Show progress information. Otherwise only errors are shown.
+                -h | --help             This help screen.
+                --version               Show version information.
 
             \(String(.italic))https://smittytone.net/word2text/index.html\(String(.normal))
             """
