@@ -48,7 +48,7 @@ extension PsionWord {
         // Encode the Paragraphs' Spans into the body text and its style/emphasis blocks
         var textBytes: [UInt8] = []
         var blocks: [(length: Int, style: String, emphasis: String)] = []
-        var listNumbers = [Int](repeating: 0, count: PsionWordConstants.ListLevelMax)
+        var listNumbers = [Int](repeating: 0, count: PsionWord3Constants.ListLevelMax)
 
         for paragraph in document.paragraphs {
             let style = styleCode(for: paragraph.type)
@@ -75,7 +75,7 @@ extension PsionWord {
             }
 
             // Paragraph separator: covered by the paragraph's final block
-            textBytes.append(UInt8(PsionWordConstants.ParagraphMarker))
+            textBytes.append(UInt8(PsionWord3Constants.ParagraphMarker))
             if blocks.count > firstBlock {
                 blocks[blocks.count - 1].length += 1
             } else {
@@ -85,7 +85,7 @@ extension PsionWord {
 
         // A Word document always has at least one paragraph
         if textBytes.isEmpty {
-            textBytes.append(UInt8(PsionWordConstants.ParagraphMarker))
+            textBytes.append(UInt8(PsionWord3Constants.ParagraphMarker))
             blocks.append((1, "BT", "NN"))
         }
 
@@ -93,7 +93,7 @@ extension PsionWord {
         blocks.append((1, "BT", "NN"))
 
         // Record lengths are 16-bit values
-        if textBytes.count > 0xFFFF || blocks.count * PsionWordConstants.BlockUnitLength > 0xFFFF {
+        if textBytes.count > 0xFFFF || blocks.count * PsionWord3Constants.BlockUnitLength > 0xFFFF {
             var error = ProcessError(code: .badTextTooLong)
             error.text = "Converted text too long to fit in a Psion Word file (\(textBytes.count) text bytes, \(blocks.count) format blocks)"
             return .failure(error)
@@ -267,17 +267,17 @@ extension PsionWord {
         // aligns wrapped lines with the text. Level 1 bullets (`BL`) match the Series 3a default.
         var listStyles: [PsionWordStyle] = []
         for isBullet in [true, false] {
-            for level in 1...PsionWordConstants.ListLevelMax {
-                let indent = PsionWordConstants.ListBaseIndent + (level - 1) * PsionWordConstants.ListIndentStep
+            for level in 1...PsionWord3Constants.ListLevelMax {
+                let indent = PsionWord3Constants.ListBaseIndent + (level - 1) * PsionWord3Constants.ListIndentStep
                 let baseName = isBullet ? "Bulleted list" : "Numbered list"
                 listStyles.append(PsionWordStyle(
-                    code: (isBullet ? PsionWordConstants.BulletListCodes : PsionWordConstants.NumberListCodes)[level - 1],
+                    code: (isBullet ? PsionWord3Constants.BulletListCodes : PsionWord3Constants.NumberListCodes)[level - 1],
                     name: level == 1 ? baseName : "\(baseName) \(level)",
                     isStyle: true,
                     fontCode: -1,
                     fontSize: 240,
                     leftIndent: indent,
-                    firstIdent: indent - PsionWordConstants.ListHangingIndent,
+                    firstIdent: indent - PsionWord3Constants.ListHangingIndent,
                     alignment: .justified,
                     spaceBelowPara: 240,
                     outlineLevel: 9,
@@ -536,7 +536,7 @@ extension PsionWord {
     private static func styleCode(for type: ParagraphType) -> String {
 
         func index(_ level: Int) -> Int {
-            return min(max(level, 1), PsionWordConstants.ListLevelMax) - 1
+            return min(max(level, 1), PsionWord3Constants.ListLevelMax) - 1
         }
 
         switch type {
@@ -545,9 +545,9 @@ extension PsionWord {
             case .heading(let level):
                 return ["HA", "HB", "HC", "HD", "HE", "HF"][index(level)]
             case .bulletItem(let level, _):
-                return PsionWordConstants.BulletListCodes[index(level)]
+                return PsionWord3Constants.BulletListCodes[index(level)]
             case .numberItem(let level, _):
-                return PsionWordConstants.NumberListCodes[index(level)]
+                return PsionWord3Constants.NumberListCodes[index(level)]
         }
     }
 
@@ -576,7 +576,7 @@ extension PsionWord {
             case .bulletItem(let level, let bullet):
                 let index = min(max(level, 1), numbers.count) - 1
                 resetNumbers(below: index, &numbers)
-                let defaultBullet = PsionWordConstants.ListBullets[index % PsionWordConstants.ListBullets.count]
+                let defaultBullet = PsionWord3Constants.ListBullets[index % PsionWord3Constants.ListBullets.count]
                 return (bullet.map { String($0) } ?? defaultBullet) + "\t"
             case .numberItem(let level, let number):
                 let index = min(max(level, 1), numbers.count) - 1

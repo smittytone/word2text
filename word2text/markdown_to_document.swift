@@ -138,7 +138,7 @@ extension PsionWord {
             }
 
             listIndents.append(indent)
-            return min(listIndents.count, PsionWordConstants.ListLevelMax)
+            return min(listIndents.count, PsionWord3Constants.ListLevelMax)
         }
 
         func flush() {

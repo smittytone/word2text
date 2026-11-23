@@ -46,7 +46,7 @@ public struct PsionWord {
     static public func decodeWord3(_ wordData: ArraySlice<UInt8>, _ filepath: String, _ settings: ProcessSettings) -> Result<String, ProcessError> {
 
         var bodyText = ""
-        var byteIndex = 40
+        var byteIndex = PsionWord3Constants.HeaderLength
         var textBytes: [UInt8] = []
         var outerText: [String] = ["", ""]
         var styles: [String:PsionWordStyle] = [:]
@@ -55,13 +55,13 @@ public struct PsionWord {
         var document = Document()
 
         // Check minimum file size: enough bytes to at least check the preamble
-        if wordData.count < PsionWordConstants.PreambleLength {
+        if wordData.count < PsionWord3Constants.PreambleLength {
             return .failure(ProcessError(code: .badPsionFileType))
         }
 
         // Check the data preamble (C String of up to 15 chars plus `NUL`)
-        let preamble = String(decoding: wordData[0..<15], as: UTF8.self)
-        if preamble != "PSIONWPDATAFILE" || wordData.count < PsionWordConstants.HeaderLength {
+        let preamble = String(decoding: wordData[0..<PsionWord3Constants.PreambleBytesLastIndex], as: UTF8.self)
+        if preamble != "PSIONWPDATAFILE" || wordData.count < PsionWord3Constants.HeaderLength {
             // TODO Report actual file type
             return .failure(ProcessError(code: .badPsionFileType))
         }
@@ -72,38 +72,38 @@ public struct PsionWord {
 
         // Check for encrypted files: look at file bytes 16 and 17
         // NOTE We can't handle these yet as the decode algorithm remains unknown
-        if getWordValue(wordData[16..<18]) == PsionWordConstants.EncryptionMarker {
+        if getWordValue(wordData[PsionWord3Constants.EncryptionBytesFirstIndex..<PsionWord3Constants.EncryptionBytesLastIndex]) == PsionWord3Constants.EncryptionMarker {
             return .failure(ProcessError(code: .badFileEncrypted))
         }
 
         // Iterate over the file's bytes to extract the records
         var recordCounter: UInt16 = 0
-        while byteIndex < wordData.count - PsionWordConstants.RecordHeaderLength {
+        while byteIndex < wordData.count - PsionWord3Constants.RecordHeaderLength {
             // Get the 16-bit record type and 16-bit data length
             let recordType = PsionWordRecordType(rawValue: getWordValue(wordData[byteIndex..<byteIndex + 2])) ?? .unknown
-            let recordDataLength: Int = getWordValue(wordData[byteIndex + 2..<byteIndex + 4])
+            let recordDataLength = getWordValue(wordData[byteIndex + 2..<byteIndex + 4])
 
             // Move index to start of record
-            byteIndex += PsionWordConstants.RecordHeaderLength
+            byteIndex += PsionWord3Constants.RecordHeaderLength
 
             if settings.showInfo {
-                log("Record of type \(PsionWordConstants.RecordTypes[recordType.rawValue - 1]) found at offset \(String(format: "0x%04x", arguments: [byteIndex])). Size: \(recordDataLength) bytes")
+                log("Record of type \(PsionWord3Constants.RecordTypes[recordType.rawValue - 1]) found at offset \(String(format: "0x%04x", arguments: [byteIndex])). Size: \(recordDataLength) bytes")
             }
 
             // Process the current record
             switch recordType {
                 case .fileInfo:
                     // We don't care about this beyond its size
-                    if recordDataLength != PsionWordConstants.FileInfoRecordLength {
+                    if recordDataLength != PsionWord3Constants.FileInfoRecordLength {
                         var error = ProcessError(code: .badRecordLengthFileInfo)
-                        error.text = "Bad file info record size (\(recordDataLength) not \(PsionWordConstants.FileInfoRecordLength) bytes)"
+                        error.text = "Bad file info record size (\(recordDataLength) not \(PsionWord3Constants.FileInfoRecordLength) bytes)"
                         return .failure(error)
                     }
                 case .printerConfig:
                     // We don't care about this beyond its size
-                    if recordDataLength != PsionWordConstants.PrinterConfigRecordLength {
+                    if recordDataLength != PsionWord3Constants.PrinterConfigRecordLength {
                         var error = ProcessError(code: .badRecordLengthPrinterConfig)
-                        error.text = "Bad printer config record size (\(recordDataLength) not \(PsionWordConstants.PrinterConfigRecordLength) bytes)"
+                        error.text = "Bad printer config record size (\(recordDataLength) not \(PsionWord3Constants.PrinterConfigRecordLength) bytes)"
                         return .failure(error)
                     }
                 case .printerDriver:
@@ -117,23 +117,23 @@ public struct PsionWord {
                     outerText[index] = decodeOuterText(wordData[byteIndex..<byteIndex + recordDataLength], index == 0, settings)
                 case .styleDefinition:
                     // Check the fixed size
-                    if recordDataLength != PsionWordConstants.StyleRecordLength {
+                    if recordDataLength != PsionWord3Constants.StyleRecordLength {
                         var error = ProcessError(code: .badRecordLengthStyleDefinition)
-                        error.text = "Bad style definition record size (\(recordDataLength) not \(PsionWordConstants.StyleRecordLength) bytes)"
+                        error.text = "Bad style definition record size (\(recordDataLength) not \(PsionWord3Constants.StyleRecordLength) bytes)"
                         return .failure(error)
                     }
 
-                    let style = decodeStyle(wordData[byteIndex..<byteIndex + PsionWordConstants.StyleRecordLength], true, settings)
+                    let style = decodeStyle(wordData[byteIndex..<byteIndex + PsionWord3Constants.StyleRecordLength], true, settings)
                     styles[style.code] = style
                 case .emphasisDefinition:
                     // Check the fixed size
-                    if recordDataLength != PsionWordConstants.EmphasisRecordLength {
+                    if recordDataLength != PsionWord3Constants.EmphasisRecordLength {
                         var error = ProcessError(code: .badRecordLengthStyleDefinition)
-                        error.text = "Bad emphasis definition record size (\(recordDataLength)) not \(PsionWordConstants.EmphasisRecordLength) bytes"
+                        error.text = "Bad emphasis definition record size (\(recordDataLength)) not \(PsionWord3Constants.EmphasisRecordLength) bytes"
                         return .failure(error)
                     }
 
-                    let emphasis = decodeStyle(wordData[byteIndex..<byteIndex + PsionWordConstants.EmphasisRecordLength], false, settings)
+                    let emphasis = decodeStyle(wordData[byteIndex..<byteIndex + PsionWord3Constants.EmphasisRecordLength], false, settings)
                     emphases[emphasis.code] = emphasis
                 case .bodyText:
                     // Keep the raw CP 850 bytes: they are decoded per span in `makeParagraphs()`.
@@ -161,7 +161,7 @@ public struct PsionWord {
         }
 
         // Check we have at least one of every record
-        if recordCounter != PsionWordConstants.RecordTotal {
+        if recordCounter != PsionWord3Constants.RecordTotal {
             // Processing ended, but without a complete set of records
             return .failure(ProcessError(code: .badFileMissingRecords))
         }
@@ -184,7 +184,7 @@ public struct PsionWord {
     /**
      Convert an individual Word file to plain text.
 
-     DEPRECATED--Use `decodeWord3()` instead.
+     DEPRECATED--Use `decodeWord3()` instead. Retained for temporary backwards compatibility.
 
      - Parameters:
         - data:     Data object containing the file bytes.
@@ -202,6 +202,8 @@ public struct PsionWord {
 
     /**
      Variation of the main `processFile()` to support passing in a Data object.
+
+     DEPRECATED--Use `decodeWord3()` instead. Retained for temporary backwards compatibility.
      */
     static public func processFile(_ data: Data, _ settings: ProcessSettings? = nil, _ filepath: String = "") -> Result<String, ProcessError> {
 

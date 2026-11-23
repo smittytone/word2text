@@ -45,7 +45,7 @@ extension PsionWord {
      - Parameters:
         - sourceText: The source text.
         - sourceType: The type of file we are converting from. Default: Markdown.
-        - wordData:   Word 3-specific file information (see `entities.swift`).
+        - wordData:   Word 3 specific file information (see `entities.swift`).
 
      - Returns: A Result containing the Word 3 file's bytes (success) or a ProcessError (failure).
      */
@@ -69,7 +69,7 @@ extension PsionWord {
      Convert Markdown-formatted text into a Psion Series 3 Word document.
      See `README.md` for details of currently supported formatting.
 
-     DEPRECATED -- USE `encodeWord3()` instead
+     DEPRECATED -- USE `encodeWord3()` instead. Temporarily retained for backwards compatibility.
 
      - Parameters:
         - markdown:      The Markdown source text.

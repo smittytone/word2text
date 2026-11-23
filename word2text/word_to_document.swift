@@ -54,7 +54,7 @@ extension PsionWord {
             guard block.startIndex <= block.endIndex && block.endIndex < rawText.count else { continue }
 
             // Get a span's text, minus the `0` paragraph separator if the block ends a paragraph
-            let isParagraphEnd = rawText[block.endIndex] == PsionWordConstants.ParagraphMarker
+            let isParagraphEnd = rawText[block.endIndex] == PsionWord3Constants.ParagraphMarker
             let spanBytes = isParagraphEnd ? rawText[block.startIndex..<block.endIndex] : rawText[block.startIndex...block.endIndex]
             var span = Span()
             span.text = decodePsionText(spanBytes)
@@ -85,7 +85,7 @@ extension PsionWord {
 
             if currentParagraph.spans.count == 1 {
                 // A paragraph's style is set by its first block
-                currentParagraph.type = paragraphType(for: block.styleCode)
+                currentParagraph.type = paragraphType(block.styleCode)
                 currentParagraph.word3Style = block.style
             }
 
@@ -129,18 +129,22 @@ extension PsionWord {
         switch paragraph.type {
             case .bulletItem(let level, _):
                 // A bullet is any single non-alphanumeric, non-space character followed by a tab
-                guard text.count >= 2, text[1] == "\t" else { return paragraph }
+                guard text.count >= 2, text[1] == "\t" else {
+                    return paragraph
+                }
                 let bullet = text[0]
-                guard !bullet.isLetter && !bullet.isNumber && !bullet.isWhitespace else { return paragraph }
+                guard !bullet.isLetter && !bullet.isNumber && !bullet.isWhitespace else {
+                    return paragraph
+                }
                 result.type = .bulletItem(level: level, bullet: bullet)
                 markerLength = 2
             case .numberItem(let level, _):
                 // A number is one or more digits, then `.` or `)`, then a tab or space
                 let digits = text.prefix(while: { $0.isASCII && $0.isNumber })
-                guard !digits.isEmpty, text.count >= digits.count + 2,
-                      text[digits.count] == "." || text[digits.count] == ")",
-                      text[digits.count + 1] == "\t" || text[digits.count + 1] == " ",
-                      let number = Int(String(digits)) else { return paragraph }
+                guard !digits.isEmpty, text.count >= digits.count + 2, text[digits.count] == "." || text[digits.count] == ")",
+                        text[digits.count + 1] == "\t" || text[digits.count + 1] == " ", let number = Int(String(digits)) else {
+                    return paragraph
+                }
                 result.type = .numberItem(level: level, number: number)
                 markerLength = digits.count + 2
             case .body, .heading:
@@ -178,17 +182,15 @@ extension PsionWord {
      - Returns: The matching ParagraphType. Unrecognised codes, including user-defined
                 styles, are treated as body text.
      */
-    private static func paragraphType(for styleCode: String) -> ParagraphType {
+    private static func paragraphType(_ styleCode: String) -> ParagraphType {
 
         // Bulleted and numbered lists, levels 1-6
-        if let list = PsionWordConstants.listInfo(styleCode) {
+        if let list = PsionWord3Constants.listInfo(styleCode) {
             return list.isBullet ? .bulletItem(level: list.level, bullet: nil) : .numberItem(level: list.level, number: nil)
         }
 
         // Headings A-F map to levels 1-6
-        if styleCode.count == 2 && styleCode.hasPrefix("H"),
-           let last = styleCode.unicodeScalars.last,
-           ("A"..."F").contains(last) {
+        if styleCode.count == 2 && styleCode.hasPrefix("H"), let last = styleCode.unicodeScalars.last, ("A"..."F").contains(last) {
             return .heading(level: Int(last.value) - Int(("A" as Unicode.Scalar).value) + 1)
         }
 
@@ -210,13 +212,14 @@ extension PsionWord {
      */
     internal static func decodeStyle(_ data: ArraySlice<UInt8>, _ isStyle: Bool, _ settings: ProcessSettings) -> PsionWordStyle {
 
-        var style: PsionWordStyle = PsionWordStyle()
+        var style = PsionWordStyle()
 
         // Code and name
         let index = data.startIndex
         style.code = String(bytes: data[index..<index + 2], encoding: .windowsCP1252) ?? ""
         style.name = String(decoding: data[index + 2..<index + 18], as: UTF8.self)
-        let range: Range<String.Index> = style.name.range(of: "\0")!    // Find the first nul
+        // Find the first nul
+        let range: Range<String.Index> = style.name.range(of: "\0")!
         style.name = String(style.name[..<range.lowerBound])
 
         if style.name.isEmpty {
@@ -313,11 +316,11 @@ extension PsionWord {
         var textIndex = 0
 
         // Stop when the text is used up, or when there isn't a whole block unit left to read
-        while textIndex < textLength && recordIndex + PsionWordConstants.BlockUnitLength <= data.endIndex {
+        while textIndex < textLength && recordIndex + PsionWord3Constants.BlockUnitLength <= data.endIndex {
             let blockLength = getWordValue(data[recordIndex..<recordIndex + 2])
             let styleCode = decodePsionText(data[recordIndex + 2..<recordIndex + 4])
             let emphasisCode = decodePsionText(data[recordIndex + 4..<recordIndex + 6])
-            recordIndex += PsionWordConstants.BlockUnitLength
+            recordIndex += PsionWord3Constants.BlockUnitLength
 
             // Skip empty blocks: they cover no text
             guard blockLength > 0 else {
