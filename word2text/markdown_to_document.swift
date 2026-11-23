@@ -44,7 +44,7 @@ extension PsionWord {
      */
     internal static func makeDocumentFromText(_ source: String, _ sourceType: ContentType) -> Document? {
 
-        guard sourceType == .plainText || sourceType == .markdown else { return  nil }
+        guard sourceType == .plainText || sourceType == .markdown else { return nil }
         var document = Document()
         if sourceType == .plainText {
             document.paragraphs = makePlainTextParagraphs(source)
@@ -80,8 +80,7 @@ extension PsionWord {
     private static func makePlainTextParagraphs(_ text: String) -> [Paragraph] {
 
         var paragraphs: [Paragraph] = []
-        let normalised = normalise(text)
-        for line in normalised.split(separator: "\n", omittingEmptySubsequences: true) {
+        for line in text.normalised.split(separator: "\n", omittingEmptySubsequences: true) {
             if line.allSatisfy({ $0.isWhitespace }) {
                 continue
             }
@@ -150,8 +149,7 @@ extension PsionWord {
         }
 
         // Convert Windows paragraph breaks to Unix style
-        let normalised = normalise(markdown)
-        for rawLine in normalised.split(separator: "\n", omittingEmptySubsequences: false) {
+       for rawLine in markdown.normalised.split(separator: "\n", omittingEmptySubsequences: false) {
             let line = String(rawLine)
             let trimmed = line.trimmingCharacters(in: .whitespaces)
 

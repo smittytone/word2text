@@ -199,20 +199,6 @@ extension PsionWord {
     }
 
 
-    /**
-     Replace Windows line endings with normalised Unix endings.
-
-     - Parameters:
-        - text: The source text.
-
-     - Returns: The normalised version of the source.
-     */
-    internal static func normalise(_ text: String) -> String {
-
-        return text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
-    }
-
-
     // MARK: - Misc.
 
     /**
