@@ -36,6 +36,7 @@ let package = Package(
                 "Info.plist",
                 "swift.plist",
                 "logging_lib.swift",
+                "lib/constants.swift",
                 "lib/entities.swift",
                 "lib/utilities.swift",
                 "lib/logging_lib.swift",
@@ -65,6 +66,7 @@ let package = Package(
             path: "word2text/lib",
             sources: [
                 // Just include the files needed for macOS lib usage
+                "constants.swift",
                 "entities.swift",
                 "utilities.swift",
                 "logging_lib.swift",
