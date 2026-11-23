@@ -57,7 +57,7 @@ extension PsionWord {
             let isParagraphEnd = rawText[block.endIndex] == PsionWord3Constants.ParagraphMarker
             let spanBytes = isParagraphEnd ? rawText[block.startIndex..<block.endIndex] : rawText[block.startIndex...block.endIndex]
             var span = Span()
-            span.text = decodePsionText(spanBytes)
+            span.text = decodeWord3Text(spanBytes)
 
             if let emphasis = block.emphasis {
                 if emphasis.bold {
@@ -210,7 +210,7 @@ extension PsionWord {
 
      - Returns: A PsionWordStyle containing the record's information.
      */
-    internal static func decodeStyle(_ data: ArraySlice<UInt8>, _ isStyle: Bool, _ settings: ProcessSettings) -> PsionWordStyle {
+    internal static func decodeWord3Style(_ data: ArraySlice<UInt8>, _ isStyle: Bool, _ settings: ProcessSettings) -> PsionWordStyle {
 
         var style = PsionWordStyle()
 
@@ -309,7 +309,7 @@ extension PsionWord {
 
      - Returns: An array of internal style records.
      */
-    internal static func decodeStyleBlocks(_ data: ArraySlice<UInt8>, _ textLength: Int, _ settings: ProcessSettings) -> [PsionWordFormatBlock] {
+    internal static func decodeWord3StyleBlocks(_ data: ArraySlice<UInt8>, _ textLength: Int, _ settings: ProcessSettings) -> [PsionWordFormatBlock] {
 
         var blocks: [PsionWordFormatBlock] = []
         var recordIndex = data.startIndex
@@ -318,8 +318,8 @@ extension PsionWord {
         // Stop when the text is used up, or when there isn't a whole block unit left to read
         while textIndex < textLength && recordIndex + PsionWord3Constants.BlockUnitLength <= data.endIndex {
             let blockLength = getWordValue(data[recordIndex..<recordIndex + 2])
-            let styleCode = decodePsionText(data[recordIndex + 2..<recordIndex + 4])
-            let emphasisCode = decodePsionText(data[recordIndex + 4..<recordIndex + 6])
+            let styleCode = decodeWord3Text(data[recordIndex + 2..<recordIndex + 4])
+            let emphasisCode = decodeWord3Text(data[recordIndex + 4..<recordIndex + 6])
             recordIndex += PsionWord3Constants.BlockUnitLength
 
             // Skip empty blocks: they cover no text
@@ -348,6 +348,47 @@ extension PsionWord {
 
 
     /**
+     Decode Psion Word text bytes (CP 850, plus Word's special characters) as a string.
+     The inverse of `encodeWord3Text()`.
+
+     Each byte becomes exactly one Unicode scalar -- nothing is dropped -- so character
+     positions in the result match byte positions in the source, eg. for block ranges.
+
+     - Parameters:
+        - bytes: The bytes to decode.
+
+     - Returns: The decoded string.
+     */
+    private static func decodeWord3Text(_ bytes: ArraySlice<UInt8>) -> String {
+
+        var scalars = String.UnicodeScalarView()
+        for byte in bytes {
+            switch byte {
+                case 0:
+                    // Paragraph separator
+                    scalars.append("\n")
+                case 7:
+                    // Unbreakable hyphen
+                    scalars.append("\u{2011}")
+                case 14:
+                    // Soft hyphen
+                    scalars.append("\u{00AD}")
+                case 15:
+                    // Unbreakable space
+                    scalars.append("\u{00A0}")
+                case 0x80...0xFF:
+                    scalars.append(cp850UpperHalf[Int(byte) - 0x80])
+                default:
+                    // 0x00-0x7F match their Unicode values
+                    scalars.append(Unicode.Scalar(byte))
+            }
+        }
+
+        return String(scalars)
+    }
+
+
+    /**
      Decode a header or footer record's text.
 
      - Parameters:
@@ -357,11 +398,11 @@ extension PsionWord {
 
      - Returns: The text as a string.
      */
-    internal static func decodeOuterText(_ data: ArraySlice<UInt8>, _ isHeader: Bool, _ settings: ProcessSettings) -> String {
+    internal static func decodeWord3OuterText(_ data: ArraySlice<UInt8>, _ isHeader: Bool, _ settings: ProcessSettings) -> String {
 
         // Remove the C String NUL terminator, if present
         let textBytes = data.last == 0 ? data.dropLast() : data
-        let outerText = decodePsionText(textBytes).trimmingCharacters(in: .whitespacesAndNewlines)
+        let outerText = decodeWord3Text(textBytes).trimmingCharacters(in: .whitespacesAndNewlines)
 
         if settings.showInfo {
             log("  \(isHeader ? "Header" : "Footer") text length \(textBytes.count) byte\(textBytes.count == 1 ? "" : "s")")

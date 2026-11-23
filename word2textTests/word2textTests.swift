@@ -191,7 +191,7 @@ struct word2textTests {
 
         let header = "Fintlewoodlewix\0"
         let bytes: [UInt8] = Array(header.utf8)
-        let s = PsionWord.decodeOuterText(bytes[...], true, ProcessSettings())
+        let s = PsionWord.decodeWord3OuterText(bytes[...], true, ProcessSettings())
         #expect(s == "Fintlewoodlewix")
     }
 
@@ -200,7 +200,7 @@ struct word2textTests {
 
         let header = "     Fintlewoodlewix\n  \0"
         let bytes: [UInt8] = Array(header.utf8)
-        let s = PsionWord.decodeOuterText(bytes[...], true, ProcessSettings())
+        let s = PsionWord.decodeWord3OuterText(bytes[...], true, ProcessSettings())
         #expect(s == "Fintlewoodlewix")
     }
 
@@ -209,7 +209,7 @@ struct word2textTests {
 
         let header = ""
         let bytes: [UInt8] = Array(header.utf8)
-        #expect(PsionWord.decodeOuterText(bytes[...], true, ProcessSettings()) == "No header")
+        #expect(PsionWord.decodeWord3OuterText(bytes[...], true, ProcessSettings()) == "No header")
     }
 
 
@@ -217,7 +217,7 @@ struct word2textTests {
 
         let footer = "Fintlewoodlewix\0"
         let bytes: [UInt8] = Array(footer.utf8)
-        let s = PsionWord.decodeOuterText(bytes[...], false, ProcessSettings())
+        let s = PsionWord.decodeWord3OuterText(bytes[...], false, ProcessSettings())
         #expect(s == "Fintlewoodlewix")
     }
 
@@ -226,7 +226,7 @@ struct word2textTests {
 
         let footer = "               Fintlewoodlewix\n\n\r\0"
         let bytes: [UInt8] = Array(footer.utf8)
-        let s = PsionWord.decodeOuterText(bytes[...], false, ProcessSettings())
+        let s = PsionWord.decodeWord3OuterText(bytes[...], false, ProcessSettings())
         #expect(s == "Fintlewoodlewix")
     }
 
@@ -235,7 +235,7 @@ struct word2textTests {
 
         let header = ""
         let bytes: [UInt8] = Array(header.utf8)
-        #expect(PsionWord.decodeOuterText(bytes[...], false, ProcessSettings()) == "No footer")
+        #expect(PsionWord.decodeWord3OuterText(bytes[...], false, ProcessSettings()) == "No footer")
     }
 
 
@@ -337,13 +337,13 @@ struct word2textTests {
     */
 
 
-    // MARK: - decodeStyleBlocks()
+    // MARK: - decodeWord3StyleBlocks()
 
     @Test func testGetStyleBlocksSimpleBlock() async throws {
 
         var bytes: [UInt8] = []
         bytes.append(contentsOf: [100, 0, 65, 66, 67, 68])
-        let blocks = PsionWord.decodeStyleBlocks(bytes[...], 100, ProcessSettings())
+        let blocks = PsionWord.decodeWord3StyleBlocks(bytes[...], 100, ProcessSettings())
         #expect(blocks.count == 1)
 
         let block = blocks[0]
@@ -357,7 +357,7 @@ struct word2textTests {
         var bytes: [UInt8] = []
         bytes.append(contentsOf: [50, 00, 77, 77, 72, 72])
         bytes.append(contentsOf: [50, 00, 69, 69, 66, 66])
-        let blocks = PsionWord.decodeStyleBlocks(bytes[...], 100, ProcessSettings())
+        let blocks = PsionWord.decodeWord3StyleBlocks(bytes[...], 100, ProcessSettings())
         #expect(blocks.count == 2)
 
         var block = blocks[0]
@@ -377,7 +377,7 @@ struct word2textTests {
         var bytes: [UInt8] = []
         bytes.append(contentsOf: [100, 0, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 0, 75, 76, 77])
         bytes.append(contentsOf: Array(repeating: 255, count: 64))
-        let style = PsionWord.decodeStyle(bytes[...], false, ProcessSettings())
+        let style = PsionWord.decodeWord3Style(bytes[...], false, ProcessSettings())
         #expect(style.name == "ABCDEFGHIJ")
     }
 
@@ -387,7 +387,7 @@ struct word2textTests {
         var bytes: [UInt8] = []
         bytes.append(contentsOf: [100, 0, 65, 65, 65, 65, 65, 0, 71, 72, 73, 74, 0, 75, 76, 77])
         bytes.append(contentsOf: Array(repeating: 255, count: 64))
-        let style = PsionWord.decodeStyle(bytes[...], true, ProcessSettings())
+        let style = PsionWord.decodeWord3Style(bytes[...], true, ProcessSettings())
         #expect(style.name == "AAAAA")
     }
 

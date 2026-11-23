@@ -45,7 +45,7 @@ extension PsionWord {
         "\u{00AD}±‗¾¶§÷¸°¨·¹³²■\u{00A0}"
     ).unicodeScalars)
 
-    private static let cp850Lookup: [Unicode.Scalar: UInt8] = {
+    internal static let cp850Lookup: [Unicode.Scalar: UInt8] = {
         var lookup: [Unicode.Scalar: UInt8] = [:]
         for (index, scalar) in cp850UpperHalf.enumerated() {
             lookup[scalar] = UInt8(0x80 + index)
@@ -56,102 +56,7 @@ extension PsionWord {
 
 
     /**
-     Encode a string as Psion Word text bytes (CP 850, plus Word's special characters).
-     Characters with no equivalent become `?`.
-
-     FROM 0.4.0
-
-     - Parameters:
-        - text: The string to encode.
-
-     - Returns: The encoded bytes.
-     */
-    internal static func encodePsionText(_ text: String) -> [UInt8] {
-
-        var bytes: [UInt8] = []
-        for scalar in text.precomposedStringWithCanonicalMapping.unicodeScalars {
-            switch scalar.value {
-                case 0x09, 0x20..<0x7F:
-                    bytes.append(UInt8(scalar.value))
-                case 0x00..<0x20, 0x7F:
-                    // Drop other control characters: 0 is Word's paragraph separator
-                    continue
-                case 0xA0:
-                    // Unbreakable space
-                    bytes.append(15)
-                case 0xAD:
-                    // Soft hyphen
-                    bytes.append(14)
-                case 0x2011:
-                    // Unbreakable hyphen
-                    bytes.append(7)
-                case 0x2018, 0x2019, 0x201A, 0x2032:
-                    // Typographic single quotes
-                    bytes.append(0x27)
-                case 0x201C, 0x201D, 0x201E, 0x2033:
-                    // Typographic double quotes
-                    bytes.append(0x22)
-                case 0x2010, 0x2012, 0x2013, 0x2212:
-                    // Hyphens, en dash, minus
-                    bytes.append(0x2D)
-                case 0x2014:
-                    // Em dash
-                    bytes.append(contentsOf: [0x2D, 0x2D])
-                case 0x2026:
-                    // Ellipsis
-                    bytes.append(contentsOf: [0x2E, 0x2E, 0x2E])
-                default:
-                    bytes.append(cp850Lookup[scalar] ?? 0x3F)
-            }
-        }
-
-        return bytes
-    }
-
-
-    /**
-     Decode Psion Word text bytes (CP 850, plus Word's special characters) as a string.
-     The inverse of `encodePsionText()`.
-
-     Each byte becomes exactly one Unicode scalar -- nothing is dropped -- so character
-     positions in the result match byte positions in the source, eg. for block ranges.
-
-     - Parameters:
-        - bytes: The bytes to decode.
-
-     - Returns: The decoded string.
-     */
-    internal static func decodePsionText(_ bytes: ArraySlice<UInt8>) -> String {
-
-        var scalars = String.UnicodeScalarView()
-        for byte in bytes {
-            switch byte {
-                case 0:
-                    // Paragraph separator
-                    scalars.append("\n")
-                case 7:
-                    // Unbreakable hyphen
-                    scalars.append("\u{2011}")
-                case 14:
-                    // Soft hyphen
-                    scalars.append("\u{00AD}")
-                case 15:
-                    // Unbreakable space
-                    scalars.append("\u{00A0}")
-                case 0x80...0xFF:
-                    scalars.append(cp850UpperHalf[Int(byte) - 0x80])
-                default:
-                    // 0x00-0x7F match their Unicode values
-                    scalars.append(Unicode.Scalar(byte))
-            }
-        }
-
-        return String(scalars)
-    }
-
-
-    /**
-     Replace Word's special characters, which a Document holds as their Unicode equivalents,
+     Replace Word 3's special characters, which a Document holds as their Unicode equivalents,
      with plain ones, as plain text and Markdown don't need them.
 
      - Parameters:
@@ -182,24 +87,7 @@ extension PsionWord {
     }
 
 
-    /*
-     CP 1252 equivalents of CP 850 bytes 0x80-0xFF, derived from `cp850UpperHalf`
-     */
-    internal static let cp850ToCp1252: [UInt8] = cp850UpperHalf.map { scalar in
-        switch scalar.value {
-            case 0xA0...0xFF:
-                // Latin-1 Supplement characters have the same code in CP 1252
-                return UInt8(scalar.value)
-            case 0x0192:
-                // ƒ
-                return 0x83
-            default:
-                return 0x3F
-        }
-    }
-
-
-    // MARK: - Misc.
+    //MARK: - Common Document Functions
 
     /**
      Combine a paragraph's spans into a single text item.
@@ -220,6 +108,8 @@ extension PsionWord {
         return spanText
     }
 
+
+    // MARK: - Misc.
 
     /**
      Output raw bytes as hex values.

@@ -114,7 +114,7 @@ public struct PsionWord {
                 case .footerText:
                     // Index in strings store is 0 for header, 1 for footer
                     let index = recordType.rawValue - PsionWordRecordType.headerText.rawValue
-                    outerText[index] = decodeOuterText(wordData[byteIndex..<byteIndex + recordDataLength], index == 0, settings)
+                    outerText[index] = decodeWord3OuterText(wordData[byteIndex..<byteIndex + recordDataLength], index == 0, settings)
                 case .styleDefinition:
                     // Check the fixed size
                     if recordDataLength != PsionWord3Constants.StyleRecordLength {
@@ -123,7 +123,7 @@ public struct PsionWord {
                         return .failure(error)
                     }
 
-                    let style = decodeStyle(wordData[byteIndex..<byteIndex + PsionWord3Constants.StyleRecordLength], true, settings)
+                    let style = decodeWord3Style(wordData[byteIndex..<byteIndex + PsionWord3Constants.StyleRecordLength], true, settings)
                     styles[style.code] = style
                 case .emphasisDefinition:
                     // Check the fixed size
@@ -133,7 +133,7 @@ public struct PsionWord {
                         return .failure(error)
                     }
 
-                    let emphasis = decodeStyle(wordData[byteIndex..<byteIndex + PsionWord3Constants.EmphasisRecordLength], false, settings)
+                    let emphasis = decodeWord3Style(wordData[byteIndex..<byteIndex + PsionWord3Constants.EmphasisRecordLength], false, settings)
                     emphases[emphasis.code] = emphasis
                 case .bodyText:
                     // Keep the raw CP 850 bytes: they are decoded per span in `makeParagraphs()`.
@@ -143,7 +143,7 @@ public struct PsionWord {
                         log("  Body text length \(textBytes.count) byte\(textBytes.count == 1 ? "" : "s")")
                     }
                 case .blockInfo:
-                    blocks = decodeStyleBlocks(wordData[byteIndex..<wordData.endIndex], textBytes.count, settings)
+                    blocks = decodeWord3StyleBlocks(wordData[byteIndex..<wordData.endIndex], textBytes.count, settings)
                     // Set each block's style and emphasis according to the codes.
                     // NOTE We loop this way so we don't change copy-on-write array members.
                     for index in blocks.indices {

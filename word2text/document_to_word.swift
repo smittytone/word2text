@@ -61,7 +61,7 @@ extension PsionWord {
 
             let firstBlock = blocks.count
             for span in spans {
-                let spanBytes = encodePsionText(span.text)
+                let spanBytes = encodeWord3Text(span.text)
                 if spanBytes.isEmpty { continue }
                 textBytes.append(contentsOf: spanBytes)
 
@@ -121,13 +121,13 @@ extension PsionWord {
         ])
 
         // Record type 3: Printer driver -- model 0 of the specified driver library
-        appendRecord(&file, .printerDriver, [0x00] + encodePsionText(wordData.printerDriver) + [0])
+        appendRecord(&file, .printerDriver, [0x00] + encodeWord3Text(wordData.printerDriver) + [0])
 
         // Record types 4 and 5: Header and footer text. Emphases are not supported
         let header = document.header.map { combineSpans($0.spans) } ?? ""
         let footer = document.footer.map { combineSpans($0.spans) } ?? "%P"
-        appendRecord(&file, .headerText, encodePsionText(header) + [0])
-        appendRecord(&file, .footerText, encodePsionText(footer) + [0])
+        appendRecord(&file, .headerText, encodeWord3Text(header) + [0])
+        appendRecord(&file, .footerText, encodeWord3Text(footer) + [0])
 
         // Record type 6: Styles
         for style in markdownStyles() {
@@ -382,7 +382,7 @@ extension PsionWord {
         var record: [UInt8] = Array(style.code.utf8.prefix(2))
 
         // Full name: up to 15 chars, NUL, padded with spaces as Word does, and a final NUL
-        var nameBytes = Array(encodePsionText(style.name).prefix(15)) + [0]
+        var nameBytes = Array(encodeWord3Text(style.name).prefix(15)) + [0]
         nameBytes += [UInt8](repeating: 0x20, count: 16 - nameBytes.count)
         nameBytes[15] = 0
         record += nameBytes
@@ -679,5 +679,59 @@ extension PsionWord {
     }
 
 
-    
+    // MARK: - Word 3 Encoding Functions
+
+    /**
+     Encode a string as Psion Word text bytes (CP 850, plus Word's special characters).
+     Characters with no equivalent become `?`.
+
+     FROM 0.4.0
+
+     - Parameters:
+        - text: The string to encode.
+
+     - Returns: The encoded bytes.
+     */
+    private static func encodeWord3Text(_ text: String) -> [UInt8] {
+
+        var bytes: [UInt8] = []
+        for scalar in text.precomposedStringWithCanonicalMapping.unicodeScalars {
+            switch scalar.value {
+                case 0x09, 0x20..<0x7F:
+                    bytes.append(UInt8(scalar.value))
+                case 0x00..<0x20, 0x7F:
+                    // Drop other control characters: 0 is Word's paragraph separator
+                    continue
+                case 0xA0:
+                    // Unbreakable space
+                    bytes.append(15)
+                case 0xAD:
+                    // Soft hyphen
+                    bytes.append(14)
+                case 0x2011:
+                    // Unbreakable hyphen
+                    bytes.append(7)
+                case 0x2018, 0x2019, 0x201A, 0x2032:
+                    // Typographic single quotes
+                    bytes.append(0x27)
+                case 0x201C, 0x201D, 0x201E, 0x2033:
+                    // Typographic double quotes
+                    bytes.append(0x22)
+                case 0x2010, 0x2012, 0x2013, 0x2212:
+                    // Hyphens, en dash, minus
+                    bytes.append(0x2D)
+                case 0x2014:
+                    // Em dash
+                    bytes.append(contentsOf: [0x2D, 0x2D])
+                case 0x2026:
+                    // Ellipsis
+                    bytes.append(contentsOf: [0x2E, 0x2E, 0x2E])
+                default:
+                    bytes.append(cp850Lookup[scalar] ?? 0x3F)
+            }
+        }
+
+        return bytes
+    }
+
 }
