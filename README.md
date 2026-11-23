@@ -44,6 +44,7 @@ For convenience, files are written using the UTF-8 encoding.
 * `-o`/`--outer`—Include ‘outer’ text, ie. header and footer text, in addition to the body text. Default: `false`.
 * `-r`/`--reverse`—Convert a Markdown or plain text file to Psion Word format. Default: `false`.
 * `--stdout`—Output to `stdout` rather than files.
+- `-c`/`--compatiblename`—Give output Word 3 files Psion-compatible names. Default `false`.
 * `-f`/`--force`—Overwrite an existing file. Default: `false`.
 * `-s`/`--stop`—Stop processing multiple files on the first error. Default: `false`.
 * `-v`/`--verbose`—Show file and content discovery information during file processing.
@@ -83,6 +84,12 @@ Bid text **to go here**...
 Page %P
 ```
 
+```shell
+word2text $HOME/Psion/'Christopher Priest’s Dream Archipelago.md' -rc
+ls
+CHRISTOP.WRD
+```
+
 ### Markdown
 
 `word2text` can use *Word* files’ styling information to mark up the processed text with Markdown formatting tags. This is necessarily limited: *Word* has only two standard headline sizes, and the only emphasis options relevant to Markdown are bold and/or italic text. Where these apply, `word2text` will mark up the text accordingly. Text styled as a *Word* Bulleted List entry will be tagged as a Markdown unordered list.
@@ -114,6 +121,14 @@ Bullets are styled according to indentation level using the repeated sequence ·
 Psion *Word* text styling is heavily based on the printer driver selected. This governs what fonts are available and more besides. Given that printing from the Psion is unlikely these days (for a start, many of the printers with bundled drivers are no longer available), I have elected to assume the Canon BubbleJet BJ-10e driver, as this makes available a broader array of fonts, and Proportional in particular.
 
 To change the printer driver on your Psion, open *Word*, press **Menu** and go to **Special > Print setup**. Scroll down to **Printer model...* and make sure `Canon BJ-10e` is selected (press **Tab** to change it if it is not).
+
+#### Filenames
+
+The Psion OS uses DOS-style 8.3 filenames made up of letters and numbers only, with no initial numbers. *Word* uses `.WRD` as an extensions. By default, `word2text` converts Markdown and plain text source filenames simply by replacing `.md`, `.txt` or whatever with `.WRD`. This requires you to manually change the filename when you transfer the file to your device. Use the `-c` (or `--compatiblename`) flag to have `word2text` generate a suitable 8.3 filename for you. It will remove all non-alphanumeric characters and spaces, and take the first eight characters from what’s left.
+
+I believe underscores are permitted in Psion filenames, but `word2text` currently removes these when generating a compatible name. This will be fixed in a future release.
+
+If the conversion process removes all offending elements from a filename (for example, `1234.md`) then `word2text` will output the converted file as `DOCUMENT.WRD`.
 
 ## Compiling the CLI App
 
