@@ -130,6 +130,10 @@ I believe underscores are permitted in Psion filenames, but `word2text` currentl
 
 If the conversion process removes all offending elements from a filename (for example, `1234.md`) then `word2text` will output the converted file as `DOCUMENT.WRD`.
 
+### Plain Text
+
+When converting to plain text, `word2text` adds bullet points or numbers to list items as appropriate so that lists can be viewed as such. This is the only formatting carried over to text files. This is a viewing convenience, and is not intended to support frequent interchange back and forth between plain text and Word 3 files. If your goal is to work on the same document on both the Series 3 and your main computer, we strongly suggest you use Markdown, not plain text, for this.
+
 ## Compiling the CLI App
 
 Building `word2text` from source requires my [Clicore Swift Package](https://github.com/smittytone/clicore).
