@@ -29,7 +29,7 @@ import Foundation
 
 extension PsionWord {
 
-    // MARK: Text Encoding
+    // MARK: - Common Text Encoding Functions
 
     /*
      Unicode equivalents of IBM Code Page 850 bytes 0x80-0xFF, the Series 3 character set
@@ -87,7 +87,61 @@ extension PsionWord {
     }
 
 
-    //MARK: - Common Document Functions
+    /**
+     Encode a string as Psion Word text bytes (CP 850, plus Word's special characters).
+     Characters with no equivalent become `?`.
+
+     FROM 0.4.0
+
+     - Parameters:
+        - text: The string to encode.
+
+     - Returns: The encoded bytes.
+     */
+    internal static func encodeWord3Text(_ text: String) -> [UInt8] {
+
+        var bytes: [UInt8] = []
+        for scalar in text.precomposedStringWithCanonicalMapping.unicodeScalars {
+            switch scalar.value {
+                case 0x09, 0x20..<0x7F:
+                    bytes.append(UInt8(scalar.value))
+                case 0x00..<0x20, 0x7F:
+                    // Drop other control characters: 0 is Word's paragraph separator
+                    continue
+                case 0xA0:
+                    // Unbreakable space
+                    bytes.append(15)
+                case 0xAD:
+                    // Soft hyphen
+                    bytes.append(14)
+                case 0x2011:
+                    // Unbreakable hyphen
+                    bytes.append(7)
+                case 0x2018, 0x2019, 0x201A, 0x2032:
+                    // Typographic single quotes
+                    bytes.append(0x27)
+                case 0x201C, 0x201D, 0x201E, 0x2033:
+                    // Typographic double quotes
+                    bytes.append(0x22)
+                case 0x2010, 0x2012, 0x2013, 0x2212:
+                    // Hyphens, en dash, minus
+                    bytes.append(0x2D)
+                case 0x2014:
+                    // Em dash
+                    bytes.append(contentsOf: [0x2D, 0x2D])
+                case 0x2026:
+                    // Ellipsis
+                    bytes.append(contentsOf: [0x2E, 0x2E, 0x2E])
+                default:
+                    bytes.append(cp850Lookup[scalar] ?? 0x3F)
+            }
+        }
+
+        return bytes
+    }
+
+    
+    // MARK: - Common Document Functions
 
     /**
      Combine a paragraph's spans into a single text item.
@@ -109,7 +163,7 @@ extension PsionWord {
     }
 
 
-    // MARK: - Misc.
+    // MARK: - Debug Functions
 
     /**
      Output raw bytes as hex values.

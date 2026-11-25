@@ -183,7 +183,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             let wordFilePath = "/path/to/Psion/Word/file"
             let data = try Data(contentsOf: URL(filePath: wordFilePath))
-            var settings = ProcessSettings()
+            var settings = Settings()
             settings.returnMarkdown = true
             let result = PsionWord.processFile(data, settings, wordFilePath)
 
@@ -205,16 +205,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 }
 ```
 
-You can adjust the handling of the Word file by adding parameters to the `ProcessSettings` instance. By default, no options are selected. The options are:
+You can adjust the handling of the Word file by adding parameters to the `Settings` instance. By default, no options are selected. The options are:
 
 * `showinfo` — Issue logging messages during processing.
 * `includeHeaders` — Include Word document headers and footers in the processed output.
 * `returnMarkdown` — Return the processed text in Markdown format rather than plain text (the default).
 
-As the example above shows, options are added by inserting them into an empty `ProcessSettings` array:
+As the example above shows, options are added by inserting them into an empty `Settings` array:
 
 ```swift
-var settings: ProcessSettings()
+var settings: Settings()
 settings.showInfo = true
 settings.returnMarkdown = true
 ```

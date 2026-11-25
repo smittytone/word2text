@@ -40,7 +40,7 @@ struct Word2Text {
         Stdio.enableCtrlHandler("word2text interrupted -- halting")
 
         // FROM 0.4.0
-        var settings = ProcessSettings()
+        var settings = Settings()
 #if os(macOS)
         // Use emoji markers on macOS
         Stdio.settings.useEmoji = true
@@ -206,7 +206,7 @@ struct Word2Text {
      - Parameters:
         - settings: The processing preferences.
      */
-    private static func processFiles(_ settings: ProcessSettings) {
+    private static func processFiles(_ settings: Settings) {
 
         for filepath in settings.files {
             switch Path.getFileContent(filepath) {
@@ -249,7 +249,7 @@ struct Word2Text {
         - settings:       Conversion preferences.
         - sourceFilePath: The path of the source file, for reporting.
      */
-    private static func outputWord(_ result: Result<Data, ProcessError>, _ settings: ProcessSettings, _ sourceFilePath: String) {
+    private static func outputWord(_ result: Result<Data, ProcessError>, _ settings: Settings, _ sourceFilePath: String) {
 
         switch result {
             case .failure(let error):
@@ -305,7 +305,7 @@ struct Word2Text {
         - settings:       Conversion preferences.
         - sourceFilePath: The path of the source file, for reporting.
      */
-    private static func outputText(_ result: Result<String, ProcessError>, _ settings: ProcessSettings, _ sourceFilePath: String) {
+    private static func outputText(_ result: Result<String, ProcessError>, _ settings: Settings, _ sourceFilePath: String) {
 
         switch result {
             case .failure(let error):

@@ -43,14 +43,14 @@ public struct PsionWord {
 
      - Returns: A Result containing the converted text (success) or a ProcessError embedding the error code (failure).
      */
-    static public func decodeWord3(_ wordData: ArraySlice<UInt8>, _ filepath: String, _ settings: ProcessSettings) -> Result<String, ProcessError> {
+    static public func decodeWord3(_ wordData: ArraySlice<UInt8>, _ filepath: String, _ settings: Settings) -> Result<String, ProcessError> {
 
         var bodyText = ""
         var byteIndex = PsionWord3Constants.HeaderLength
         var textBytes: [UInt8] = []
         var outerText: [String] = ["", ""]
-        var styles: [String:PsionWordStyle] = [:]
-        var emphases: [String:PsionWordStyle] = [:]
+        var styles: [String:PsionWord3Style] = [:]
+        var emphases: [String:PsionWord3Style] = [:]
         var blocks: [PsionWordFormatBlock] = []
         var document = Document()
 
@@ -80,7 +80,7 @@ public struct PsionWord {
         var recordCounter: UInt16 = 0
         while byteIndex < wordData.count - PsionWord3Constants.RecordHeaderLength {
             // Get the 16-bit record type and 16-bit data length
-            let recordType = PsionWordRecordType(rawValue: getWordValue(wordData[byteIndex..<byteIndex + 2])) ?? .unknown
+            let recordType = PsionWord3RecordType(rawValue: getWordValue(wordData[byteIndex..<byteIndex + 2])) ?? .unknown
             let recordDataLength = getWordValue(wordData[byteIndex + 2..<byteIndex + 4])
 
             // Move index to start of record
@@ -113,7 +113,7 @@ public struct PsionWord {
                     fallthrough
                 case .footerText:
                     // Index in strings store is 0 for header, 1 for footer
-                    let index = recordType.rawValue - PsionWordRecordType.headerText.rawValue
+                    let index = recordType.rawValue - PsionWord3RecordType.headerText.rawValue
                     outerText[index] = decodeWord3OuterText(wordData[byteIndex..<byteIndex + recordDataLength], index == 0, settings)
                 case .styleDefinition:
                     // Check the fixed size
@@ -194,7 +194,7 @@ public struct PsionWord {
 
      - Returns: A Result containing the text (success) or a ProcessError embedding the error code (failure).
      */
-    static public func processFile(_ data: ArraySlice<UInt8>, _ filepath: String, _ settings: ProcessSettings) -> Result<String, ProcessError> {
+    static public func processFile(_ data: ArraySlice<UInt8>, _ filepath: String, _ settings: Settings) -> Result<String, ProcessError> {
 
         return decodeWord3(data, filepath, settings)
     }
@@ -205,10 +205,10 @@ public struct PsionWord {
 
      DEPRECATED--Use `decodeWord3()` instead. Retained for temporary backwards compatibility.
      */
-    static public func processFile(_ data: Data, _ settings: ProcessSettings? = nil, _ filepath: String = "") -> Result<String, ProcessError> {
+    static public func processFile(_ data: Data, _ settings: Settings? = nil, _ filepath: String = "") -> Result<String, ProcessError> {
 
         let bytes = [UInt8](data)
-        return decodeWord3(bytes[...], filepath, settings == nil ? ProcessSettings() : settings!)
+        return decodeWord3(bytes[...], filepath, settings == nil ? Settings() : settings!)
     }
 
  }

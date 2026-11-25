@@ -27,6 +27,8 @@
 import Foundation
 
 
+// MARK: - Internal Entities
+
 /*
     Word file processing error codes.
     NOTE We require raw values for these, for output as stderr codes.
@@ -104,10 +106,8 @@ public struct ProcessError: Error, LocalizedError {
 
 /*
     Configuration data for Word file processing operations.
-
-    REVISED 0.4.0
 */
-public struct ProcessSettings {
+public struct Settings {
 
     public var showInfo: Bool               = false
     public var includeHeader: Bool          = false
@@ -138,8 +138,8 @@ public struct ProcessSettings {
 public struct Conversion {
 
     public var sourceFilePath: String       = ""
-    public var inputType: ContentType        = .word3
-    public var outputType: ContentType       = .plainText
+    public var inputType: ContentType       = .word3
+    public var outputType: ContentType      = .plainText
 }
 
 
@@ -166,130 +166,6 @@ public struct ProcessNotification {
 
     public static let log       = Notification.Name(rawValue: "com.bps.word2text.note.log.message")
     public static let warning   = Notification.Name(rawValue: "com.bps.word2text.note.log.warning")
-}
-
-
-/*
-    Structure to hold a Style or Emphasis record.
-
-    Not all of the fields are used by each type.
-*/
-public struct PsionWordStyle {
-
-    public var code: String                            = ""
-    public var name: String                            = ""
-    public var isStyle: Bool                           = true           // `true` for a style, `false` for an emphasis
-    public var isUndeletable: Bool                     = false
-    public var isDefault: Bool                         = false
-    public var fontCode: Int                           = 0
-    public var underlined: Bool                        = false
-    public var bold: Bool                              = false
-    public var italic: Bool                            = false
-    public var superScript: Bool                       = false          // Emphasis only
-    public var subScript: Bool                         = false          // Emphasis only
-    public var fontSize: Int                           = 10             // Multiple of 0.05
-    public var inheritUnderline: Bool                  = false
-    public var inheritBold: Bool                       = false
-    public var inheritItalic: Bool                     = false
-    public var inheritSuperScript: Bool                = false
-    public var inheritSubScript: Bool                  = false
-    public var leftIndent: Int                         = 0              // This and all remaining members
-    public var rightIndent: Int                        = 0              // are Style only
-    public var firstIdent: Int                         = 0
-    public var alignment: PsionWordAlignment           = .left
-    public var lineSpacing: Int                        = 240
-    public var spaceAbovePara: Int                     = 0
-    public var spaceBelowPara: Int                     = 0
-    public var spacing: PsionWordSpacing               = .noSpacing
-    public var outlineLevel: Int                       = 0
-    public var tabPositions: [Int]                     = []
-    public var tabTypes: [PsionWordTabType]            = []
-}
-
-
-/*
-    Text section formatting information.
-*/
-public struct PsionWordFormatBlock {
-
-    public var startIndex: Int                          = 0              // Index into the raw text from Section 8 (first character)
-    public var endIndex: Int                            = 0              // Index into the raw text from Section 8 (last character)
-    public var styleCode: String                        = "BT"           // Span's Word 3 style code
-    public var emphasisCode: String                     = "NN"           // Span's Word 3 emphasis code
-    // FROM
-    public var style: PsionWordStyle?                   = nil
-    public var emphasis: PsionWordStyle?                = nil
-}
-
-
-/*
-    Text alignment options.
-    NOTE We require raw values for these
-*/
-public enum PsionWordAlignment: Int {
-
-    case left                                   = 0
-    case right                                  = 1
-    case centered                               = 2
-    case justified                              = 3
-    case unknown                                = 99
-}
-
-
-/*
-    Paragraph spacing options
-*/
-public enum PsionWordSpacing {
-
-    case keepWithNext
-    case keepTogether
-    case newPage
-    case noSpacing
-}
-
-extension PsionWordSpacing {
-
-    mutating func set(_ value: UInt8) {
-        if value & 0x01 > 0 {
-            self = .keepWithNext
-        } else if value & 0x02 > 0 {
-            self = .keepTogether
-        } else if value & 0x04 > 0 {
-            self = .newPage
-        } else {
-            self = .noSpacing
-        }
-    }
-}
-
-
-/*
-    Tabulation options
-*/
-public enum PsionWordTabType: Int {
-
-    case left                                   = 0
-    case right                                  = 1
-    case centered                               = 2
-}
-
-
-/*
-    Word file record types.
-    NOTE We require raw values for these, to match to record type bytes.
-*/
-public enum PsionWordRecordType: Int {
-
-    case fileInfo                               = 1
-    case printerConfig                          = 2
-    case printerDriver                          = 3
-    case headerText                             = 4
-    case footerText                             = 5
-    case styleDefinition                        = 6
-    case emphasisDefinition                     = 7
-    case bodyText                               = 8
-    case blockInfo                              = 9
-    case unknown                                = 99
 }
 
 
@@ -334,7 +210,7 @@ struct Paragraph {
 
     var type: ParagraphType                     = .body                 // Styling
     var spans: [Span]                           = []                    // Array of text units, each of one or no empahsis
-    var word3Style: PsionWordStyle?             = nil                   // Word 3 Style name, if set
+    var word3Style: PsionWord3Style?             = nil                   // Word 3 Style name, if set
 }
 
 
@@ -450,6 +326,132 @@ public struct SpanType: OptionSet, Hashable {
     // Convenience combinations
     public static let normal: SpanType          = []
     public static let boldItalic: SpanType      = [.bold, .italic]
+}
+
+
+// MARK: - Psion Word 3-related Entities
+
+/*
+    Structure to hold a Psion Word 3 Style or Emphasis record.
+
+    Not all of the fields are used by each type.
+*/
+public struct PsionWord3Style {
+
+    public var code: String                            = ""
+    public var name: String                            = ""
+    public var isStyle: Bool                           = true           // `true` for a style, `false` for an emphasis
+    public var isUndeletable: Bool                     = false
+    public var isDefault: Bool                         = false
+    public var fontCode: Int                           = 0
+    public var underlined: Bool                        = false
+    public var bold: Bool                              = false
+    public var italic: Bool                            = false
+    public var superScript: Bool                       = false          // Emphasis only
+    public var subScript: Bool                         = false          // Emphasis only
+    public var fontSize: Int                           = 10             // Multiple of 0.05
+    public var inheritUnderline: Bool                  = false
+    public var inheritBold: Bool                       = false
+    public var inheritItalic: Bool                     = false
+    public var inheritSuperScript: Bool                = false
+    public var inheritSubScript: Bool                  = false
+    public var leftIndent: Int                         = 0              // This and all remaining members
+    public var rightIndent: Int                        = 0              // are Style only
+    public var firstIdent: Int                         = 0
+    public var alignment: PsionWordAlignment           = .left
+    public var lineSpacing: Int                        = 240
+    public var spaceAbovePara: Int                     = 0
+    public var spaceBelowPara: Int                     = 0
+    public var spacing: PsionWordSpacing               = .noSpacing
+    public var outlineLevel: Int                       = 0
+    public var tabPositions: [Int]                     = []
+    public var tabTypes: [PsionWordTabType]            = []
+}
+
+
+/*
+    Word file record types.
+    NOTE We require raw values for these, to match to record type bytes.
+*/
+public enum PsionWord3RecordType: Int {
+
+    case fileInfo                               = 1
+    case printerConfig                          = 2
+    case printerDriver                          = 3
+    case headerText                             = 4
+    case footerText                             = 5
+    case styleDefinition                        = 6
+    case emphasisDefinition                     = 7
+    case bodyText                               = 8
+    case blockInfo                              = 9
+    case unknown                                = 99
+}
+
+
+/*
+    Text section formatting information.
+*/
+public struct PsionWordFormatBlock {
+
+    public var startIndex: Int                          = 0              // Index into the raw text from Section 8 (first character)
+    public var endIndex: Int                            = 0              // Index into the raw text from Section 8 (last character)
+    public var styleCode: String                        = "BT"           // Span's Word 3 style code
+    public var emphasisCode: String                     = "NN"           // Span's Word 3 emphasis code
+    // FROM
+    public var style: PsionWord3Style?                   = nil
+    public var emphasis: PsionWord3Style?                = nil
+}
+
+
+/*
+    Text alignment options.
+    NOTE We require raw values for these
+*/
+public enum PsionWordAlignment: Int {
+
+    case left                                   = 0
+    case right                                  = 1
+    case centered                               = 2
+    case justified                              = 3
+    case unknown                                = 99
+}
+
+
+/*
+    Paragraph spacing options
+*/
+public enum PsionWordSpacing {
+
+    case keepWithNext
+    case keepTogether
+    case newPage
+    case noSpacing
+}
+
+extension PsionWordSpacing {
+
+    mutating func set(_ value: UInt8) {
+        if value & 0x01 > 0 {
+            self = .keepWithNext
+        } else if value & 0x02 > 0 {
+            self = .keepTogether
+        } else if value & 0x04 > 0 {
+            self = .newPage
+        } else {
+            self = .noSpacing
+        }
+    }
+}
+
+
+/*
+    Tabulation options
+*/
+public enum PsionWordTabType: Int {
+
+    case left                                   = 0
+    case right                                  = 1
+    case centered                               = 2
 }
 
 

@@ -208,11 +208,11 @@ extension PsionWord {
         - isStyle: `true` if the record holds a Style; `false` if it is an Emphasis.
         - settings: File conversion parameters.
 
-     - Returns: A PsionWordStyle containing the record's information.
+     - Returns: A PsionWord3Style containing the record's information.
      */
-    internal static func decodeWord3Style(_ data: ArraySlice<UInt8>, _ isStyle: Bool, _ settings: ProcessSettings) -> PsionWordStyle {
+    internal static func decodeWord3Style(_ data: ArraySlice<UInt8>, _ isStyle: Bool, _ settings: Settings) -> PsionWord3Style {
 
-        var style = PsionWordStyle()
+        var style = PsionWord3Style()
 
         // Code and name
         let index = data.startIndex
@@ -309,7 +309,7 @@ extension PsionWord {
 
      - Returns: An array of internal style records.
      */
-    internal static func decodeWord3StyleBlocks(_ data: ArraySlice<UInt8>, _ textLength: Int, _ settings: ProcessSettings) -> [PsionWordFormatBlock] {
+    internal static func decodeWord3StyleBlocks(_ data: ArraySlice<UInt8>, _ textLength: Int, _ settings: Settings) -> [PsionWordFormatBlock] {
 
         var blocks: [PsionWordFormatBlock] = []
         var recordIndex = data.startIndex
@@ -398,7 +398,7 @@ extension PsionWord {
 
      - Returns: The text as a string.
      */
-    internal static func decodeWord3OuterText(_ data: ArraySlice<UInt8>, _ isHeader: Bool, _ settings: ProcessSettings) -> String {
+    internal static func decodeWord3OuterText(_ data: ArraySlice<UInt8>, _ isHeader: Bool, _ settings: Settings) -> String {
 
         // Remove the C String NUL terminator, if present
         let textBytes = data.last == 0 ? data.dropLast() : data

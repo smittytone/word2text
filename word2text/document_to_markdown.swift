@@ -172,6 +172,10 @@ extension PsionWord {
     /**
      Convert a Document to Plain Text.
 
+     NOTE Currently we convert list items to textual list items, i.e., we add
+          bullet points or numbers as appropriate. This is the only formatting
+          carried over to text files.
+
      FROM 0.5.0
 
      - Parameters:

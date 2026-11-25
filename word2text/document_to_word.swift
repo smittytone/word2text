@@ -1,6 +1,6 @@
 /*
     word2text
-    document_to_word3.swift
+    document_to_word.swift
 
     Copyright © 2026 Tony Smith. All rights reserved.
 
@@ -51,7 +51,7 @@ extension PsionWord {
         var listNumbers = [Int](repeating: 0, count: PsionWord3Constants.ListLevelMax)
 
         for paragraph in document.paragraphs {
-            let style = styleCode(for: paragraph.type)
+            let style = word3StyleCode(for: paragraph.type)
             var spans = paragraph.spans
 
             // Word has no automatic bullets or numbers, so add the list marker to the text
@@ -66,7 +66,7 @@ extension PsionWord {
                 textBytes.append(contentsOf: spanBytes)
 
                 // Merge with the previous block if it has the same formatting (within this paragraph only)
-                let emphasis = emphasisCode(for: span.type)
+                let emphasis = word3EmphasisCode(for: span.type)
                 if blocks.count > firstBlock && blocks[blocks.count - 1].emphasis == emphasis {
                     blocks[blocks.count - 1].length += spanBytes.count
                 } else {
@@ -100,20 +100,20 @@ extension PsionWord {
         }
 
         // File header (unencrypted)
-        var file: [UInt8] = Array("PSIONWPDATAFILE".utf8) + [0]
+        var psionFile: [UInt8] = Array("PSIONWPDATAFILE".utf8) + [0]
         // Format version
-        appendWord(&file, 1)
+        appendWord(&psionFile, 1)
         // Encryption algorithm version
-        appendWord(&file, 0)
-        file.append(contentsOf: [UInt8](repeating: 0xEA, count: 16))
-        appendWord(&file, 0xEAEA)
-        appendWord(&file, 0)
+        appendWord(&psionFile, 0)
+        psionFile.append(contentsOf: [UInt8](repeating: 0xEA, count: 16))
+        appendWord(&psionFile, 0xEAEA)
+        appendWord(&psionFile, 0)
 
         // Record type 1: File info -- values as written by a Series 3a
-        appendRecord(&file, .fileInfo, [0x00, 0x00, 0x19, 0x22, 0x00, 0x00, 0x08, 0x01, 0x02, 0x00])
+        appendRecord(&psionFile, .fileInfo, [0x00, 0x00, 0x19, 0x22, 0x00, 0x00, 0x08, 0x01, 0x02, 0x00])
 
         // Record type 2: Printer set-up -- A4 portrait, header left-aligned, values as written by a Series 3a
-        appendRecord(&file, .printerConfig, [
+        appendRecord(&psionFile, .printerConfig, [
             0x82, 0x2E, 0xC6, 0x41, 0x08, 0x07, 0x08, 0x07, 0x72, 0x20, 0xB6, 0x33, 0xD0, 0x02, 0xD0, 0x02,
             0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0xF0, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -121,26 +121,26 @@ extension PsionWord {
         ])
 
         // Record type 3: Printer driver -- model 0 of the specified driver library
-        appendRecord(&file, .printerDriver, [0x00] + encodeWord3Text(wordData.printerDriver) + [0])
+        appendRecord(&psionFile, .printerDriver, [0x00] + encodeWord3Text(wordData.printerDriver) + [0])
 
         // Record types 4 and 5: Header and footer text. Emphases are not supported
         let header = document.header.map { combineSpans($0.spans) } ?? ""
         let footer = document.footer.map { combineSpans($0.spans) } ?? "%P"
-        appendRecord(&file, .headerText, encodeWord3Text(header) + [0])
-        appendRecord(&file, .footerText, encodeWord3Text(footer) + [0])
+        appendRecord(&psionFile, .headerText, encodeWord3Text(header) + [0])
+        appendRecord(&psionFile, .footerText, encodeWord3Text(footer) + [0])
 
         // Record type 6: Styles
-        for style in markdownStyles() {
-            appendRecord(&file, .styleDefinition, style)
+        for style in makeStandardStyles() {
+            appendRecord(&psionFile, .styleDefinition, style)
         }
 
         // Record type 7: Emphases
-        for emphasis in markdownEmphases() {
-            appendRecord(&file, .emphasisDefinition, emphasis)
+        for emphasis in makeStandardEmphases() {
+            appendRecord(&psionFile, .emphasisDefinition, emphasis)
         }
 
         // Record type 8: Unstyled body text
-        appendRecord(&file, .bodyText, textBytes)
+        appendRecord(&psionFile, .bodyText, textBytes)
 
         // Record type 9: Style and emphasis blocks
         var blockBytes: [UInt8] = []
@@ -150,9 +150,9 @@ extension PsionWord {
             blockBytes.append(contentsOf: Array(block.emphasis.utf8))
         }
 
-        appendRecord(&file, .blockInfo, blockBytes)
+        appendRecord(&psionFile, .blockInfo, blockBytes)
 
-        return .success(Data(file))
+        return .success(Data(psionFile))
     }
 
 
@@ -165,150 +165,15 @@ extension PsionWord {
      */
     private static let styleFontCode: Int = 0x18
 
-    /**
-     The style records written to Markdown-derived documents.
-     BT, HA and BL match the Series 3a defaults; HB to HF and NL are added to cover Markdown.
-     */
-    private static func markdownStyles() -> [[UInt8]] {
-
-        let bodyStyle = PsionWordStyle(
-            code: "BT",
-            name: "Body text",
-            isStyle: true,
-            isUndeletable: true,
-            isDefault: true,
-            fontCode: styleFontCode,
-            fontSize: 240,
-            alignment: .justified,
-            spaceBelowPara: 240,
-            outlineLevel: 9
-        )
-
-        let headStyleA = PsionWordStyle(
-            code: "HA",
-            name: "Heading A",
-            isStyle: true,
-            fontCode: styleFontCode,
-            bold: true,
-            fontSize: 480,
-            alignment: .centered,
-            lineSpacing: 480,
-            spaceBelowPara: 240,
-            spacing: .keepWithNext,
-            outlineLevel: 1
-        )
-
-        let headStyleB = PsionWordStyle(
-            code: "HB",
-            name: "Heading B",
-            isStyle: true,
-            fontCode: styleFontCode,
-            bold: true,
-            fontSize: 360,
-            lineSpacing: 360,
-            spaceBelowPara: 120,
-            spacing: .keepWithNext,
-            outlineLevel: 2
-        )
-
-        let headStyleC = PsionWordStyle(
-            code: "HC",
-            name: "Heading C",
-            isStyle: true,
-            fontCode: styleFontCode,
-            bold: true,
-            fontSize: 280,
-            lineSpacing: 280,
-            spaceBelowPara: 120,
-            spacing: .keepWithNext,
-            outlineLevel: 3
-        )
-
-        let headStyleD = PsionWordStyle(
-            code: "HD",
-            name: "Heading D",
-            isStyle: true,
-            fontCode: styleFontCode,
-            bold: true,
-            fontSize: 240,
-            spaceBelowPara: 120,
-            spacing: .keepWithNext,
-            outlineLevel: 4
-        )
-
-        let headStyleE = PsionWordStyle(
-            code: "HE",
-            name: "Heading E",
-            isStyle: true,
-            fontCode: styleFontCode,
-            bold: true,
-            italic: true,
-            fontSize: 240,
-            spaceBelowPara: 120,
-            spacing: .keepWithNext,
-            outlineLevel: 5
-        )
-
-        let headStyleF = PsionWordStyle(
-            code: "HF",
-            name: "Heading F",
-            isStyle: true,
-            fontCode: styleFontCode,
-            italic: true,
-            fontSize: 240,
-            spaceBelowPara: 120,
-            spacing: .keepWithNext,
-            outlineLevel: 6
-        )
-
-        // FROM 0.4.1
-        // List styles, one per nesting level. Each has a hanging indent: the first line starts
-        // `ListHangingIndent` left of the rest, and a tab stop where the rest start, so `bullet<TAB>text`
-        // aligns wrapped lines with the text. Level 1 bullets (`BL`) match the Series 3a default.
-        var listStyles: [PsionWordStyle] = []
-        for isBullet in [true, false] {
-            for level in 1...PsionWord3Constants.ListLevelMax {
-                let indent = PsionWord3Constants.ListBaseIndent + (level - 1) * PsionWord3Constants.ListIndentStep
-                let baseName = isBullet ? "Bulleted list" : "Numbered list"
-                listStyles.append(PsionWordStyle(
-                    code: (isBullet ? PsionWord3Constants.BulletListCodes : PsionWord3Constants.NumberListCodes)[level - 1],
-                    name: level == 1 ? baseName : "\(baseName) \(level)",
-                    isStyle: true,
-                    fontCode: -1,
-                    fontSize: 240,
-                    leftIndent: indent,
-                    firstIdent: indent - PsionWord3Constants.ListHangingIndent,
-                    alignment: .justified,
-                    spaceBelowPara: 240,
-                    outlineLevel: 9,
-                    tabPositions: [indent],
-                    tabTypes: [.left]
-                ))
-            }
-        }
-
-        return [
-            // Body text: the default style
-            makeStyleRecord(bodyStyle, 8),
-            // Headings
-            makeStyleRecord(headStyleA),
-            makeStyleRecord(headStyleB),
-            makeStyleRecord(headStyleC),
-            makeStyleRecord(headStyleD),
-            makeStyleRecord(headStyleE),
-            makeStyleRecord(headStyleF)
-        ] + listStyles.map { makeStyleRecord($0) }
-    }
-
 
     /**
-     Build an 80-byte Word style record.
+     Build an 80-byte Psion Word 3 Style record block (type 6).
+
+     NOTE Defaults reflect values used by the Series 3a. Font sizes, indents and spacing are in 1/20 points.
+          All eight tab stop slots are always written (with Word's default 0.5in stops) as Word does,
+          but only `tabCount` of them are active.
 
      FROM 0.4.0
-
-     - Note: Defaults reflect values used by the Series 3a. Font sizes, indents and spacing are in 1/20 points.
-             All eight tab stop slots are always written (with Word's default 0.5in stops) as Word does,
-             but only `tabCount` of them are active.
 
      - Parameters:
         - style:    A style structure.
@@ -316,9 +181,9 @@ extension PsionWord {
 
      - Returns: The style record as encoded bytes.
      */
-    private static func makeStyleRecord(_ style: PsionWordStyle, _ tabCount: Int = 0) -> [UInt8] {
+    private static func makeStyleRecord(_ style: PsionWord3Style, _ tabCount: Int = 0) -> [UInt8] {
 
-        var record = makeStyleHeader(style)
+        var record = makeCommonHeader(style)
         appendWord(&record, style.leftIndent)
         // Right indent
         appendWord(&record, 0)
@@ -356,63 +221,68 @@ extension PsionWord {
 
 
     /**
-     Build a 28-byte type 7 (emphasis) record. Font and size are inherited.
+     Build a 28-byte Psion Word 3 Emphasis record block (type 7). Font and size are inherited.
 
      FROM 0.4.0
 
      - Parameters:
-        - emphasis: A Word emphasis structure.
+        - emphasis: An internal Word 3 emphasis structure.
 
      - Returns: The emphasis record as encoded bytes.
      */
-    private static func makeEmphasisRecord(_ emphasis: PsionWordStyle) -> [UInt8] {
+    private static func makeEmphasisRecord(_ emphasis: PsionWord3Style) -> [UInt8] {
 
-        return makeStyleHeader(emphasis)
+        return makeCommonHeader(emphasis)
     }
 
 
     /**
-     Build the 28 bytes common to style and emphasis records.
+     Build the 28 bytes common to Psion Word 3 Style and Emphasis records.
 
      FROM 0.4.0
+
+     - Parameters:
+        - wordStyle: An internal Word 3 style or emphasis record.
+
+     - Returns: The style or emphasis record as encoded bytes.
      */
-    private static func makeStyleHeader(_ style: PsionWordStyle)  -> [UInt8] {
+    private static func makeCommonHeader(_ wordStyle: PsionWord3Style)  -> [UInt8] {
 
         // Short code (2 bytes)
-        var record: [UInt8] = Array(style.code.utf8.prefix(2))
+        var record: [UInt8] = Array(wordStyle.code.utf8.prefix(2))
 
         // Full name: up to 15 chars, NUL, padded with spaces as Word does, and a final NUL
-        var nameBytes = Array(encodeWord3Text(style.name).prefix(15)) + [0]
+        var nameBytes = Array(encodeWord3Text(wordStyle.name).prefix(15)) + [0]
         nameBytes += [UInt8](repeating: 0x20, count: 16 - nameBytes.count)
         nameBytes[15] = 0
         record += nameBytes
 
-        var flags: UInt8 = style.isStyle ? 0x00 : 0x01
-        flags += style.isUndeletable ? 0x02 : 0x00
-        flags += style.isDefault ? 0x04 : 0x00
+        var flags: UInt8 = wordStyle.isStyle ? 0x00 : 0x01
+        flags += wordStyle.isUndeletable ? 0x02 : 0x00
+        flags += wordStyle.isDefault ? 0x04 : 0x00
         record.append(flags)
         record.append(0)
-        appendWord(&record, style.fontCode)
+        appendWord(&record, wordStyle.fontCode)
 
-        flags = style.underlined ? 0x01 : 0x00
-        flags += style.bold ? 0x02 : 0x00
-        flags += style.italic ? 0x04 : 0x00
-        if !style.isStyle {
-            flags += style.superScript ? 0x08 : 0x00
-            flags += style.subScript ? 0x10 : 0x00
+        flags = wordStyle.underlined ? 0x01 : 0x00
+        flags += wordStyle.bold ? 0x02 : 0x00
+        flags += wordStyle.italic ? 0x04 : 0x00
+        if !wordStyle.isStyle {
+            flags += wordStyle.superScript ? 0x08 : 0x00
+            flags += wordStyle.subScript ? 0x10 : 0x00
         }
         record.append(flags)
 
         // Unused (older files may have 0x80)
         record.append(0)
-        appendWord(&record, style.fontSize)
+        appendWord(&record, wordStyle.fontSize)
 
-        flags = style.inheritUnderline ? 0x01 : 0x00
-        flags += style.inheritBold ? 0x02 : 0x00
-        flags += style.inheritItalic ? 0x04 : 0x00
-        if !style.isStyle {
-            flags += style.inheritSuperScript ? 0x08 : 0x00
-            flags += style.inheritSubScript ? 0x10 : 0x00
+        flags = wordStyle.inheritUnderline ? 0x01 : 0x00
+        flags += wordStyle.inheritBold ? 0x02 : 0x00
+        flags += wordStyle.inheritItalic ? 0x04 : 0x00
+        if !wordStyle.isStyle {
+            flags += wordStyle.inheritSuperScript ? 0x08 : 0x00
+            flags += wordStyle.inheritSubScript ? 0x10 : 0x00
         }
         record.append(flags)
         // Unused
@@ -420,18 +290,161 @@ extension PsionWord {
         return record
     }
 
-    
+
     /**
-     The Word emphasis records written to Markdown-derived documents.
+     Generate a list of Psion Word 3 style record block which map to the known
+     Markdown paragraph styles that we support for conversion from Markdown to Word 3.
+
+     `BT`, `HA` and `BL` match the Series 3a defaults; `HB` to `HF` and `NL` are added
+     by us to cover a range of Markdown formatting.
+
+     - Returns: Array of byte arrays for adding to the Word 3 file binary.
+     */
+    private static func makeStandardStyles() -> [[UInt8]] {
+
+        let bodyStyle = PsionWord3Style(
+            code: "BT",
+            name: "Body text",
+            isStyle: true,
+            isUndeletable: true,
+            isDefault: true,
+            fontCode: styleFontCode,
+            fontSize: 240,
+            alignment: .justified,
+            spaceBelowPara: 240,
+            outlineLevel: 9
+        )
+
+        let headStyleA = PsionWord3Style(
+            code: "HA",
+            name: "Heading A",
+            isStyle: true,
+            fontCode: styleFontCode,
+            bold: true,
+            fontSize: 480,
+            alignment: .centered,
+            lineSpacing: 480,
+            spaceBelowPara: 240,
+            spacing: .keepWithNext,
+            outlineLevel: 1
+        )
+
+        let headStyleB = PsionWord3Style(
+            code: "HB",
+            name: "Heading B",
+            isStyle: true,
+            fontCode: styleFontCode,
+            bold: true,
+            fontSize: 360,
+            lineSpacing: 360,
+            spaceBelowPara: 120,
+            spacing: .keepWithNext,
+            outlineLevel: 2
+        )
+
+        let headStyleC = PsionWord3Style(
+            code: "HC",
+            name: "Heading C",
+            isStyle: true,
+            fontCode: styleFontCode,
+            bold: true,
+            fontSize: 280,
+            lineSpacing: 280,
+            spaceBelowPara: 120,
+            spacing: .keepWithNext,
+            outlineLevel: 3
+        )
+
+        let headStyleD = PsionWord3Style(
+            code: "HD",
+            name: "Heading D",
+            isStyle: true,
+            fontCode: styleFontCode,
+            bold: true,
+            fontSize: 240,
+            spaceBelowPara: 120,
+            spacing: .keepWithNext,
+            outlineLevel: 4
+        )
+
+        let headStyleE = PsionWord3Style(
+            code: "HE",
+            name: "Heading E",
+            isStyle: true,
+            fontCode: styleFontCode,
+            bold: true,
+            italic: true,
+            fontSize: 240,
+            spaceBelowPara: 120,
+            spacing: .keepWithNext,
+            outlineLevel: 5
+        )
+
+        let headStyleF = PsionWord3Style(
+            code: "HF",
+            name: "Heading F",
+            isStyle: true,
+            fontCode: styleFontCode,
+            italic: true,
+            fontSize: 240,
+            spaceBelowPara: 120,
+            spacing: .keepWithNext,
+            outlineLevel: 6
+        )
+
+        // FROM 0.4.1
+        // List styles, one per nesting level. Each has a hanging indent: the first line starts
+        // `ListHangingIndent` left of the rest, and a tab stop where the rest start, so `bullet<TAB>text`
+        // aligns wrapped lines with the text. Level 1 bullets (`BL`) match the Series 3a default.
+        var listStyles: [PsionWord3Style] = []
+        for isBullet in [true, false] {
+            for level in 1...PsionWord3Constants.ListLevelMax {
+                let indent = PsionWord3Constants.ListBaseIndent + (level - 1) * PsionWord3Constants.ListIndentStep
+                let baseName = isBullet ? "Bulleted list" : "Numbered list"
+                listStyles.append(PsionWord3Style(
+                    code: (isBullet ? PsionWord3Constants.BulletListCodes : PsionWord3Constants.NumberListCodes)[level - 1],
+                    name: level == 1 ? baseName : "\(baseName) \(level)",
+                    isStyle: true,
+                    fontCode: -1,
+                    fontSize: 240,
+                    leftIndent: indent,
+                    firstIdent: indent - PsionWord3Constants.ListHangingIndent,
+                    alignment: .justified,
+                    spaceBelowPara: 240,
+                    outlineLevel: 9,
+                    tabPositions: [indent],
+                    tabTypes: [.left]
+                ))
+            }
+        }
+
+        return [
+            // Body text: the default style
+            makeStyleRecord(bodyStyle, 8),
+            // Headings
+            makeStyleRecord(headStyleA),
+            makeStyleRecord(headStyleB),
+            makeStyleRecord(headStyleC),
+            makeStyleRecord(headStyleD),
+            makeStyleRecord(headStyleE),
+            makeStyleRecord(headStyleF)
+        ] + listStyles.map { makeStyleRecord($0) }
+    }
+
+
+    /**
+     Generate a list of Psion Word 3 emphasis record block which map to the known
+     Markdown character styles that we support for conversion from Markdown to Word 3.
+
      `NN` to `SS` match the Series 3a defaults; `BI` is added for Markdown bold-italic.
 
      FROM 0.4.0
 
-     - Returns: Array of byte arrays to add to the Word binary.
+     - Returns: Array of byte arrays for adding to the Word 3 file binary.
      */
-    private static func markdownEmphases() -> [[UInt8]] {
+    private static func makeStandardEmphases() -> [[UInt8]] {
 
-        let normalEmphasis = PsionWordStyle(
+        let normalEmphasis = PsionWord3Style(
             code: "NN",
             name: "Normal",
             isStyle: false,
@@ -444,7 +457,7 @@ extension PsionWord {
             inheritItalic: true
         )
 
-        let underlineEmphasis = PsionWordStyle(
+        let underlineEmphasis = PsionWord3Style(
             code: "UU",
             name: "Underline",
             isStyle: false,
@@ -455,7 +468,7 @@ extension PsionWord {
             inheritItalic: true
         )
 
-        let boldEmphasis = PsionWordStyle(
+        let boldEmphasis = PsionWord3Style(
             code: "BB",
             name: "Bold",
             isStyle: false,
@@ -466,7 +479,7 @@ extension PsionWord {
             inheritItalic: true
         )
 
-        let italicEmphasis = PsionWordStyle(
+        let italicEmphasis = PsionWord3Style(
             code: "II",
             name: "Italic",
             isStyle: false,
@@ -477,7 +490,7 @@ extension PsionWord {
             inheritBold: true
         )
 
-        let boldItalicEmphasis = PsionWordStyle(
+        let boldItalicEmphasis = PsionWord3Style(
             code: "BI",
             name: "Bold italic",
             isStyle: false,
@@ -488,7 +501,7 @@ extension PsionWord {
             inheritUnderline: true
         )
 
-        let superscriptEmphasis = PsionWordStyle(
+        let superscriptEmphasis = PsionWord3Style(
             code: "EE",
             name: "Superscript",
             isStyle: false,
@@ -500,7 +513,7 @@ extension PsionWord {
             inheritItalic: true
         )
 
-        let subscriptEmphasis = PsionWordStyle(
+        let subscriptEmphasis = PsionWord3Style(
             code: "SS",
             name: "Subscript",
             isStyle: false,
@@ -522,8 +535,10 @@ extension PsionWord {
             makeEmphasisRecord(boldItalicEmphasis)
         ]
     }
+
+
     /**
-     Map a paragraph type to a Word 3 style code. The inverse of `paragraphType(for:)`.
+     Map an internal paragraph type to a Psion Word 3 style code. The inverse of `paragraphType(for:)`.
      Levels outside the range 1-6 are clamped to it.
 
      FROM 0.5.0
@@ -533,7 +548,7 @@ extension PsionWord {
 
      - Returns: The matching two-character Word 3 style code.
      */
-    private static func styleCode(for type: ParagraphType) -> String {
+    private static func word3StyleCode(for type: ParagraphType) -> String {
 
         func index(_ level: Int) -> Int {
             return min(max(level, 1), PsionWord3Constants.ListLevelMax) - 1
@@ -553,7 +568,7 @@ extension PsionWord {
 
 
     /**
-     Get the text marker -- bullet or number, plus a tab -- that a Word 3 list item carries.
+     Get the text marker -- bullet or number, plus a tab -- that a Psion Word 3 list item carries.
 
      Items with no bullet get the default bullet for their level. Items with no number are
      numbered on from the previous item at the same level. Any non-list paragraph restarts
@@ -591,6 +606,10 @@ extension PsionWord {
      Clear the list numbering of levels deeper than the specified one.
 
      FROM 0.5.0
+
+     - Parameters:
+        - index:   The inset level at which to begin clearing list numbers.
+        - numbers: The list of numbers to be updated.
      */
     private static func resetNumbers(below index: Int, _ numbers: inout [Int]) {
 
@@ -603,8 +622,8 @@ extension PsionWord {
     /**
      Map a span type to the Word 3 emphasis code that best matches it.
 
-     Only the emphases written by `markdownEmphases()` are available, so where a type
-     combines emphases, eg. bold and underline, one is chosen. Priority: bold italic, bold,
+     Only the emphases written by `makeStandardEmphases()` are available, so where a type
+     combines emphases, e.g., bold and underline, one is chosen. Priority: bold italic, bold,
      italic, underline, superscript, subscript. Word 3 has no strikethrough, so it is dropped.
 
      FROM 0.5.0
@@ -614,7 +633,7 @@ extension PsionWord {
 
      - Returns: The matching two-character Word 3 emphasis code.
      */
-    private static func emphasisCode(for type: SpanType) -> String {
+    private static func word3EmphasisCode(for type: SpanType) -> String {
 
         if type.isSuperset(of: .boldItalic) {
             return "BI"
@@ -645,7 +664,7 @@ extension PsionWord {
 
 
     /**
-     Append a record (type, length, data) to the file bytes.
+     Append a record (type, length, data) to a Psion Word 3 file's bytes.
 
      FROM 0.4.0
 
@@ -654,7 +673,7 @@ extension PsionWord {
         - type: The Word record type.
         - data: The record bytes to append.
      */
-    private static func appendRecord(_ file: inout [UInt8], _ type: PsionWordRecordType, _ data: [UInt8]) {
+    private static func appendRecord(_ file: inout [UInt8], _ type: PsionWord3RecordType, _ data: [UInt8]) {
 
         appendWord(&file, type.rawValue)
         appendWord(&file, data.count)
@@ -676,62 +695,6 @@ extension PsionWord {
         let word = UInt16(truncatingIfNeeded: value)
         bytes.append(UInt8(word & 0xFF))
         bytes.append(UInt8(word >> 8))
-    }
-
-
-    // MARK: - Word 3 Encoding Functions
-
-    /**
-     Encode a string as Psion Word text bytes (CP 850, plus Word's special characters).
-     Characters with no equivalent become `?`.
-
-     FROM 0.4.0
-
-     - Parameters:
-        - text: The string to encode.
-
-     - Returns: The encoded bytes.
-     */
-    private static func encodeWord3Text(_ text: String) -> [UInt8] {
-
-        var bytes: [UInt8] = []
-        for scalar in text.precomposedStringWithCanonicalMapping.unicodeScalars {
-            switch scalar.value {
-                case 0x09, 0x20..<0x7F:
-                    bytes.append(UInt8(scalar.value))
-                case 0x00..<0x20, 0x7F:
-                    // Drop other control characters: 0 is Word's paragraph separator
-                    continue
-                case 0xA0:
-                    // Unbreakable space
-                    bytes.append(15)
-                case 0xAD:
-                    // Soft hyphen
-                    bytes.append(14)
-                case 0x2011:
-                    // Unbreakable hyphen
-                    bytes.append(7)
-                case 0x2018, 0x2019, 0x201A, 0x2032:
-                    // Typographic single quotes
-                    bytes.append(0x27)
-                case 0x201C, 0x201D, 0x201E, 0x2033:
-                    // Typographic double quotes
-                    bytes.append(0x22)
-                case 0x2010, 0x2012, 0x2013, 0x2212:
-                    // Hyphens, en dash, minus
-                    bytes.append(0x2D)
-                case 0x2014:
-                    // Em dash
-                    bytes.append(contentsOf: [0x2D, 0x2D])
-                case 0x2026:
-                    // Ellipsis
-                    bytes.append(contentsOf: [0x2E, 0x2E, 0x2E])
-                default:
-                    bytes.append(cp850Lookup[scalar] ?? 0x3F)
-            }
-        }
-
-        return bytes
     }
 
 }
