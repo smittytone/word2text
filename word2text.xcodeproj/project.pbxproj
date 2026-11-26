@@ -143,13 +143,13 @@
 		3BF564502D0A270F008E58B6 /* word2text */ = {
 			isa = PBXGroup;
 			children = (
-				3BF5644E2D0A270F008E58B6 /* word2text.swift */,
 				3BC3CB7030B49BE300BE5D32 /* constants.swift */,
+				3BF5644E2D0A270F008E58B6 /* word2text.swift */,
 				3BD947C32E50D99D00A3245D /* convert_word.swift */,
-				3B72CE27309F2C7300E61ADA /* convert_markdown.swift */,
-				3B017C7230AF64C900190C97 /* markdown_to_document.swift */,
 				3B017C7830B0487500190C97 /* word_to_document.swift */,
 				3B017C7530AF676800190C97 /* document_to_markdown.swift */,
+				3B72CE27309F2C7300E61ADA /* convert_markdown.swift */,
+				3B017C7230AF64C900190C97 /* markdown_to_document.swift */,
 				3B017C6630AF44ED00190C97 /* document_to_word.swift */,
 				3B8187EC2F03CCED00E98F50 /* logging_cli.swift */,
 				3BF5644F2D0A270F008E58B6 /* entities.swift */,
@@ -456,7 +456,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = Y5J3K52DNA;
@@ -481,7 +481,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
-				CURRENT_PROJECT_VERSION = 53;
+				CURRENT_PROJECT_VERSION = 54;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = Y5J3K52DNA;
