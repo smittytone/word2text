@@ -73,7 +73,7 @@ struct Word2Text {
                     case "-v", "--verbose":
                         settings.showInfo = true
                     case "-o", "--outer":
-                        settings.includeHeader = true
+                        settings.word3.includeHeaders = true
                     case "-f", "--force":
                         settings.forceWrite = true
                     case "-m", "--markdown":
@@ -83,7 +83,7 @@ struct Word2Text {
                     case "-r", "--reverse":
                         settings.reverseConversion = true
                     case "-c", "--compatiblename":
-                        settings.fixName = true
+                        settings.word3.fixName = true
                     case "--stdout":
                         settings.outputAsFile = false
                     case "-h", "-help", "--help":
@@ -212,26 +212,27 @@ struct Word2Text {
             switch Path.getFileContent(filepath) {
                 case .failure(let error):
                     Stdio.reportError(error.localizedDescription)
-                case .success(let data):
+                case .success(let filedata):
+                    let data = Data(filedata)
                     if settings.reverseConversion {
                         // Convert text or Markdown to WRD
                         guard let sourceText = String(bytes: data, encoding: .utf8) else {
-                            outputWord(.failure(ProcessError(code:.badFileNotUTF8)), settings, filepath)
+                            outputWord(.failure(ProcessError(code:.fileNotUTF8)), settings, filepath)
                             continue
                         }
 
                         // FROM 0.5.0 -- Check file extension
                         let sourceType: ContentType = (filepath as NSString).pathExtension.uppercased().hasPrefix("T") ? .plainText : .markdown
 
-                        let result: Result<Data, ProcessError> = !data.isEmpty
-                        ? PsionWord.encodeWord3(sourceText, sourceType)  // PASS IN SETTINGS FOR LOGGING!!!
-                        : .failure(ProcessError(code: .badFile))
+                        let result: DataResult = !data.isEmpty
+                        ? PsionWord.encodeWord3(using: sourceText, ofType: sourceType, settings)
+                        : .failure(ProcessError(code: .fileEmpty))
                         outputWord(result, settings, filepath)
                     } else {
                         // Convert WRD to text or Markdown
-                        let result: Result<String, ProcessError> = !data.isEmpty
-                        ? PsionWord.decodeWord3(data, filepath, settings)
-                        : .failure(ProcessError(code: .badFile))
+                        let result: StringResult = !data.isEmpty
+                        ? PsionWord.decodeWord3(using: data, settings)
+                        : .failure(ProcessError(code: .fileEmpty))
                         outputText(result, settings, filepath)
                     }
             }
@@ -249,7 +250,7 @@ struct Word2Text {
         - settings:       Conversion preferences.
         - sourceFilePath: The path of the source file, for reporting.
      */
-    private static func outputWord(_ result: Result<Data, ProcessError>, _ settings: Settings, _ sourceFilePath: String) {
+    private static func outputWord(_ result: DataResult, _ settings: Settings, _ sourceFilePath: String) {
 
         switch result {
             case .failure(let error):
@@ -261,7 +262,7 @@ struct Word2Text {
                 }
             case .success(let fileData):
                 // Output to a file: generate the name and extension
-                let outFilePath = checkWord3Filename(sourceFilePath, settings.fixName)
+                let outFilePath = checkWord3Filename(sourceFilePath, settings.word3.fixName)
                 if FileManager.default.fileExists(atPath: outFilePath) {
                     if !settings.forceWrite {
                         let errorMessage = "File \(outFilePath) already exists -- use `--force` to overwrite"
@@ -305,7 +306,7 @@ struct Word2Text {
         - settings:       Conversion preferences.
         - sourceFilePath: The path of the source file, for reporting.
      */
-    private static func outputText(_ result: Result<String, ProcessError>, _ settings: Settings, _ sourceFilePath: String) {
+    private static func outputText(_ result: StringResult, _ settings: Settings, _ sourceFilePath: String) {
 
         switch result {
             case .failure(let error):

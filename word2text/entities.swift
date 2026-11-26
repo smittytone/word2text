@@ -27,6 +27,11 @@
 import Foundation
 
 
+public typealias StringResult = Result<String, ProcessError>
+public typealias DataResult = Result<Data, ProcessError>
+public typealias DocumentResult = Result<Document, ProcessError>
+
+
 // MARK: - Internal Entities
 
 /*
@@ -35,20 +40,25 @@ import Foundation
 */
 public enum ProcessErrorKind: Int, Error {
 
-    case noError                                = 0
-    case badFile                                = 1
-    case badPsionFileType                       = 2
-    case badFileEncrypted                       = 3
-    case badRecordLengthFileInfo                = 4
-    case badRecordLengthPrinterConfig           = 5
-    case badRecordLengthStyleDefinition         = 6
-    case badRecordLengthEmphasisDefinition      = 7
-    case badRecordType                          = 8
-    case badFileMissingRecords                  = 9
-    case badTextTooLong                         = 10
-    case badFileNotUTF8                         = 11
-    case fileAlreadyExists                      = 12
-    case badConversionSource                    = 13
+    case noError                                        = 0
+    // General file handling errors
+    case fileAlreadyExists                              = 10
+    case fileNotUTF8                                    = 11
+    case fileEmpty                                      = 12
+    // Conversion Errors
+    case badConversionSource                            = 20
+    case badConversionDestination                       = 21
+    // Psion Word 3 Errors
+    case badWord3FileType                               = 30
+    case word3FileEncrypted                             = 31
+    case badWord3RecordLengthFileInfo                   = 32
+    case badWord3RecordLengthPrinterConfig              = 33
+    case badWord3RecordLengthStyleDefinition            = 34
+    case badWord3RecordLengthEmphasisDefinition         = 35
+    case badWord3RecordType                             = 36
+    case badWord3FileMissingRecords                     = 37
+    case badWord3TextTooLong                            = 38
+    case badWord3FileTruncated                          = 39
 }
 
 
@@ -69,37 +79,58 @@ public struct ProcessError: Error, LocalizedError {
         switch self.code {
             case .noError:
                 return nil
-            case .badFile:
+            // General File Errors
+            case .fileEmpty:
                 return "File not found"
-            case .badPsionFileType:
+            case .fileNotUTF8:
+                return "Source file is not UTF-8"
+            case .fileAlreadyExists:
+                return "Output file already exists -- use `--force to overwrite"
+            // Conversion Errors
+            case .badConversionSource, .badConversionDestination:
+                return "Incompatible input or output type selected"
+            // Psion Word 3 Errors
+            case .badWord3FileType:
                 return "Not a Psion Series 3 Word file"
-            case .badFileEncrypted:
+            case .word3FileEncrypted:
                 return "Word file is encrypted"
-            case .badRecordLengthFileInfo,
-                 .badRecordLengthPrinterConfig,
-                 .badRecordLengthStyleDefinition,
-                 .badRecordLengthEmphasisDefinition,
-                 .badRecordType:
+            case .badWord3RecordLengthFileInfo,
+                 .badWord3RecordLengthPrinterConfig,
+                 .badWord3RecordLengthStyleDefinition,
+                 .badWord3RecordLengthEmphasisDefinition,
+                 .badWord3RecordType,
+                 .badWord3FileTruncated:
                 if let text = self.text {
                     return text
                 } else {
                     return "Error message not provided"
                 }
-            case .badFileMissingRecords:
+            case .badWord3FileMissingRecords:
                 return "File did not include required records"
-            case .badTextTooLong:
+            case .badWord3TextTooLong:
                 if let text = self.text {
                     return text
                 } else {
                     return "Text too long for a Psion Word file (max. 64KB)"
                 }
-            case .badFileNotUTF8:
-                return "Source file is not UTF-8"
-            case .fileAlreadyExists:
-                return "Output file already exists -- use `--force to overwrite"
-            case .badConversionSource:
-                return "Incompatible input or output type selected"
         }
+    }
+}
+
+
+/**
+ Word 3-specific settings
+
+ FROM 0.5.0
+ */
+public struct Word3Settings {
+
+    public var printerDriver: String        = "ROM::BJ.WDR"         // Driver name in Psion Series 3 ROM.
+    public var includeHeaders: Bool         = false
+    public var fixName: Bool                = false                 // if `true`, convert source text filename to Psion compatible one
+
+    public init() {
+
     }
 }
 
@@ -109,19 +140,19 @@ public struct ProcessError: Error, LocalizedError {
 */
 public struct Settings {
 
-    public var showInfo: Bool               = false
-    public var includeHeader: Bool          = false
+    public var showInfo: Bool               = false                 // Logging on or off
+    public var includeHeaders: Bool         = false                 // Include header and footer text in Word 3 to text DEPRECATED
     public var haltOnFirstError: Bool       = false
-    public var outputAsFile: Bool           = true
-    public var returnMarkdown: Bool         = false
-    public var files: [String]              = []
+    public var outputAsFile: Bool           = true                  // If `false`, write text to stdout
+    public var returnMarkdown: Bool         = false                 // If `true`, create Markdown from Word 3, not plain text
+    public var files: [String]              = []                    // List of paths of files to process
     // FROM 0.4.0
-    public var reverseConversion: Bool      = false
-    public var forceWrite: Bool             = false
+    public var reverseConversion: Bool      = false                 // Convert from text to Word
+    public var forceWrite: Bool             = false                 // If `true`, overwrite exiting file(s)
     // FROM 0.5.0
-    public var fixName: Bool                = false
+    public var word3: Word3Settings         = Word3Settings()
     // FROM TBD
-    public var jobs: [Conversion]           = []
+    public var jobs: [Conversion]           = []                    // UNUSED FOR NOW
 
     public init() {
 
@@ -391,7 +422,7 @@ public enum PsionWord3RecordType: Int {
 /*
     Text section formatting information.
 */
-public struct PsionWordFormatBlock {
+public struct PsionWord3FormatBlock {
 
     public var startIndex: Int                          = 0              // Index into the raw text from Section 8 (first character)
     public var endIndex: Int                            = 0              // Index into the raw text from Section 8 (last character)
@@ -465,7 +496,7 @@ public enum PsionWordTabType: Int {
     Series 3a ROM's Canon BubbleJet driver.
 
     FROM 0.5.0
- */
+
 public struct Word3Data {
 
     public var header: String                   = ""                    // Format string
@@ -484,3 +515,20 @@ public struct Word3Data {
         self.printerDriver = printerDriver
     }
 }
+
+
+public struct TextData {
+
+    public var withOuter: Bool                  = false
+
+    public init() {
+
+    }
+
+    public init(withOuter: Bool) {
+
+        self.withOuter = withOuter
+    }
+
+}
+*/

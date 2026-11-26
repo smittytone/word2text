@@ -34,7 +34,7 @@ import Foundation
 */
 extension PsionWord {
 
-    // MARK: - Markdown/Plain Text to Word 3 Entry Points
+    // MARK: - Markdown/Plain Text to Word Entry Points
 
     /**
      Convert Markdown-formatted text into a Psion Series 3 Word document.
@@ -43,26 +43,27 @@ extension PsionWord {
      FROM 0.4.0
 
      - Parameters:
-        - sourceText: The source text.
-        - sourceType: The type of file we are converting from. Default: Markdown.
-        - wordData:   Word 3 specific file information (see `entities.swift`).
+        - source:   The source text (plain or Markdown).
+        - ofType:   The type of file we are converting from. Default: Markdown.
+        - settings: Conversion settings.
 
      - Returns: A Result containing the Word 3 file's bytes (success) or a ProcessError (failure).
      */
-    static public func encodeWord3(_ sourceText: String, _ sourceType: ContentType = .markdown, _ wordData: Word3Data = Word3Data()) -> Result<Data, ProcessError> {
+    static public func encodeWord3(using sourceText: String, ofType sourceType: ContentType = .markdown, _ settings: Settings) -> DataResult {
 
-        // Check we have the right input type by converting the source to a Document
-        guard var document = makeDocumentFromText(sourceText, sourceType) else {
-            return .failure(ProcessError(code: .badConversionSource))
+        switch makeDocument(from: sourceText, ofType: sourceType, settings) {
+            case .failure(let error):
+                return .failure(error)
+            case .success(var document):
+                // Add generic footer and header text to the Document
+                document.header = Paragraph(spans: [Span(text: "")])
+                document.footer = Paragraph(spans: [Span(text: "%P")])
+                return convertToWord3(document, settings)
         }
-
-        // Add the footer and header text to the Document
-        document.header = Paragraph(spans: [Span(text: wordData.header)])
-        document.footer = Paragraph(spans: [Span(text: wordData.footer)])
-
-        // Convert the Document to Word 3
-        return convert(document, wordData)
     }
+
+
+
 
 
     /**
@@ -84,8 +85,13 @@ extension PsionWord {
      */
     static public func generateFile(fromMarkdown markdown: String, header: String = "", footer: String = "%P", printerDriver: String = "ROM::BJ.WDR") -> Result<Data, ProcessError> {
 
-        let wordData = Word3Data(header: header, footer: footer, printerDriver: printerDriver)
-        return encodeWord3(markdown, .markdown, wordData)
+        var compSettings = Settings()
+        compSettings.word3.printerDriver = printerDriver
+        if compSettings.includeHeaders {
+            compSettings.word3.includeHeaders = true
+        }
+
+        return encodeWord3(using: markdown, ofType: .markdown, Settings())
     }
 
 }

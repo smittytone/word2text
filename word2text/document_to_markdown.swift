@@ -35,45 +35,42 @@ extension PsionWord {
      Convert an internal Document instance, to plain text or Markdown.
 
      - Parameters:
-        - document:   A Document instance instances.
-        - outputType: Type of file to generate. Default: Plain Text.
-        - addOuter:   Include header and/or footer text if preseent
+        - document: A Document instance instances.
+        - settings: Process settings.
 
-     - Returns: The conversion as a string. Issues and empty string on error.
+     - Returns: A Result containing the text (success) or a Process Error (failure).
      */
-    internal static func convert(_ document: Document, _ outputType: ContentType = .plainText, _ addOuter: Bool = false) -> String {
-
-        guard outputType == .markdown || outputType == .plainText else { return "" }
+    internal static func convertToText(_ document: Document, _ settings: Settings) -> StringResult {
 
         var docText = ""
-
-        if outputType == .markdown {
+        let textType: ContentType = settings.returnMarkdown ? .markdown : .plainText
+        if textType == .markdown {
             docText = documentToMarkdown(document)
         } else {
             docText = documentToText(document)
         }
 
         // Apply headers and/or footers if present and requested
-        if addOuter {
+        if settings.word3.includeHeaders {
             if let footer = document.footer, let header = document.header {
-                let footerText = combineSpans(footer.spans, outputType)
-                let headerText = combineSpans(header.spans, outputType)
+                let footerText = combineSpans(footer.spans, textType)
+                let headerText = combineSpans(header.spans, textType)
                 let lineCount = max(footerText.count, headerText.count)
                 let line = String(repeating: "*", count: lineCount)
                 docText = "\(docText)\n\(line)\n\(footerText)\n"
                 docText = "\(headerText)\n\(line)\n\(docText)"
             } else if let footer = document.footer {
-                let footerText = combineSpans(footer.spans, outputType)
+                let footerText = combineSpans(footer.spans, textType)
                 let line = String(repeating: "*", count: footerText.count)
                 docText = "\(docText)\n\(line)\n\(footerText)\n"
             } else if let header = document.header {
-                let headerText = combineSpans(header.spans, outputType)
+                let headerText = combineSpans(header.spans, textType)
                 let line = String(repeating: "*", count: headerText.count)
                 docText = "\(headerText)\n\(line)\n\(docText)"
             }
         }
 
-        return plainCharacters(docText)
+        return .success(plainCharacters(docText))
     }
 
 

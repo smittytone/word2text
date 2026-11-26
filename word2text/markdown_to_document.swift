@@ -40,15 +40,19 @@ extension PsionWord {
         - source:     The source text.
         - sourceType: The type of the source: Markdown or Plain Text.
 
-     - Returns: The source as a Document, or `nil` on error. The header and footer are not set.
+     - Returns: A DocumentResult containing the generated document, or a ProcessError
      */
-    internal static func makeDocumentFromText(_ source: String, _ sourceType: ContentType) -> Document? {
+    internal static func makeDocument(from source: String, ofType sourceType: ContentType, _ settings: Settings) -> DocumentResult {
 
-        guard sourceType == .plainText || sourceType == .markdown else { return nil }
+        // Confirm the source type is correct
+        guard sourceType == .plainText || sourceType == .markdown else {
+            return .failure(ProcessError(code: .badConversionSource))
+        }
+
         var document = Document()
         if sourceType == .plainText {
             document.paragraphs = makePlainTextParagraphs(source)
-            return document
+            return .success(document)
         }
 
         for item in makeMarkdownParagraphs(source) {
@@ -57,7 +61,7 @@ extension PsionWord {
             document.paragraphs.append(Paragraph(type: item.type, spans: spans))
         }
 
-        return document
+        return .success(document)
     }
 
 

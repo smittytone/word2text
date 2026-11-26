@@ -43,7 +43,7 @@ extension PsionWord {
 
      - Returns: A Result containing the Word file's bytes (success) or a ProcessError (failure).
      */
-    internal static func convert(_ document: Document, _ wordData: Word3Data = Word3Data()) -> Result<Data, ProcessError> {
+    internal static func convertToWord3(_ document: Document, _ settings: Settings) -> DataResult {
 
         // Encode the Paragraphs' Spans into the body text and its style/emphasis blocks
         var textBytes: [UInt8] = []
@@ -94,7 +94,7 @@ extension PsionWord {
 
         // Record lengths are 16-bit values
         if textBytes.count > 0xFFFF || blocks.count * PsionWord3Constants.BlockUnitLength > 0xFFFF {
-            var error = ProcessError(code: .badTextTooLong)
+            var error = ProcessError(code: .badWord3TextTooLong)
             error.text = "Converted text too long to fit in a Psion Word file (\(textBytes.count) text bytes, \(blocks.count) format blocks)"
             return .failure(error)
         }
@@ -121,7 +121,7 @@ extension PsionWord {
         ])
 
         // Record type 3: Printer driver -- model 0 of the specified driver library
-        appendRecord(&psionFile, .printerDriver, [0x00] + encodeWord3Text(wordData.printerDriver) + [0])
+        appendRecord(&psionFile, .printerDriver, [0x00] + encodeWord3Text(settings.word3.printerDriver) + [0])
 
         // Record types 4 and 5: Header and footer text. Emphases are not supported
         let header = document.header.map { combineSpans($0.spans) } ?? ""

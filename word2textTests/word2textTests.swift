@@ -19,9 +19,9 @@ struct word2textTests {
     @Test func testProcessTextBadPreamble() async throws {
 
         let bytes: [UInt8] = [UInt8](repeating: 0, count: 100)
-        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", Settings()) {
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
             case .failure(let error):
-                #expect(error.code == .badPsionFileType)
+                #expect(error.code == .badWord3FileType)
             case .success(_):
                 #expect(Bool(false))
         }
@@ -31,9 +31,9 @@ struct word2textTests {
     @Test func testProcessTextBadDataSizeUnder16Bytes() async throws {
 
         let bytes: [UInt8] = [UInt8](repeating: 0, count: 10)
-        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", Settings()) {
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
             case .failure(let error):
-                #expect(error.code == .badPsionFileType)
+                #expect(error.code == .badWord3FileType)
             case .success(_):
                 #expect(Bool(false))
         }
@@ -46,9 +46,9 @@ struct word2textTests {
         var bytes: [UInt8] = Array(preamble.utf8)
         bytes.append(contentsOf: [0, 0, 1])
         bytes.append(contentsOf: [UInt8](repeating: 0, count: 10))
-        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", Settings()) {
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
             case .failure(let error):
-                #expect(error.code == .badPsionFileType)
+                #expect(error.code == .badWord3FileType)
             case .success(_):
                 #expect(Bool(false))
         }
@@ -61,10 +61,10 @@ struct word2textTests {
         var bytes: [UInt8] = Array(preamble.utf8)
         bytes.append(contentsOf: [0, 0, 1])
         bytes.append(contentsOf: [UInt8](repeating: 0, count: 100))
-        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", Settings()) {
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
             case .failure(let error):
                 // This will exit with an 'encrypted' error
-                #expect(error.code == .badFileEncrypted)
+                #expect(error.code == .word3FileEncrypted)
             case .success(_):
                 #expect(Bool(false))
         }
@@ -77,10 +77,10 @@ struct word2textTests {
         var bytes: [UInt8] = Array(preamble.utf8)
         bytes.append(contentsOf: [0, 0, 0])
         bytes.append(contentsOf: [UInt8](repeating: 0, count: 24))
-        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", Settings()) {
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
             case .failure(let error):
                 // This will exit with an 'missing records' error
-                #expect(error.code == .badFileMissingRecords)
+                #expect(error.code == .badWord3FileMissingRecords)
             case .success(_):
                 #expect(Bool(false))
         }
@@ -91,9 +91,9 @@ struct word2textTests {
 
         var bytes = buildHeader()
         bytes.append(contentsOf: [0, 99, 0, 0, 0, 0, 0, 0, 0])
-        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", Settings()) {
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
             case .failure(let error):
-                #expect(error.code == .badRecordType)
+                #expect(error.code == .badWord3RecordType)
             case .success(_):
                 #expect(Bool(false))
         }
@@ -103,10 +103,10 @@ struct word2textTests {
     @Test func testProcessTextBadRecordWrongSizeFileInfo() async throws {
 
         var bytes = buildHeader()
-        bytes.append(contentsOf: [0, 1, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", Settings()) {
+        bytes.append(contentsOf: [0, 1, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
             case .failure(let error):
-                #expect(error.code == .badRecordLengthFileInfo)
+                #expect(error.code == .badWord3RecordLengthFileInfo)
             case .success(_):
                 #expect(Bool(false))
         }
@@ -117,10 +117,10 @@ struct word2textTests {
 
         // Build record
         var bytes = buildHeader()
-        bytes.append(contentsOf: [0, 2, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", Settings()) {
+        bytes.append(contentsOf: [0, 2, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
             case .failure(let error):
-                #expect(error.code == .badRecordLengthPrinterConfig)
+                #expect(error.code == .badWord3RecordLengthPrinterConfig)
             case .success(_):
                 #expect(Bool(false))
         }
@@ -131,10 +131,10 @@ struct word2textTests {
 
         // Build record
         var bytes = buildHeader()
-        bytes.append(contentsOf: [0, 6, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", Settings()) {
+        bytes.append(contentsOf: [0, 6, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
             case .failure(let error):
-                #expect(error.code == .badRecordLengthStyleDefinition)
+                #expect(error.code == .badWord3RecordLengthStyleDefinition)
             case .success(_):
                 #expect(Bool(false))
         }
@@ -145,10 +145,24 @@ struct word2textTests {
 
         // Build record
         var bytes = buildHeader()
-        bytes.append(contentsOf: [0, 7, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-        switch PsionWord.decodeWord3(bytes[...], "/sample/filepath", Settings()) {
+        bytes.append(contentsOf: [0, 7, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
             case .failure(let error):
-                #expect(error.code == .badRecordLengthStyleDefinition)
+                #expect(error.code == .badWord3RecordLengthEmphasisDefinition)
+            case .success(_):
+                #expect(Bool(false))
+        }
+    }
+
+
+    @Test func testProcessTextFileTruncated() async throws {
+
+        // Build record
+        var bytes = buildHeader()
+        bytes.append(contentsOf: [0, 7, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        switch PsionWord.decodeWord3(using: Data(bytes), Settings()) {
+            case .failure(let error):
+                #expect(error.code == .badWord3FileTruncated)
             case .success(_):
                 #expect(Bool(false))
         }

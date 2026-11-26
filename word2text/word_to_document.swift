@@ -29,7 +29,164 @@ import Foundation
 
 extension PsionWord {
 
-    // MARK: - Entry point for Document creation from Word formats
+    /**
+     Build a Document from a loaded Psion Word file.
+
+     - Parameters:
+        - source:     The loaded Word 3 file bytes.
+        - sourceType: The type of Psion Word file.
+        - settings:   The conversion settings.
+
+     - Returns: A Result containing the converted Document (success) or a ProcessError (failure).
+     */
+    internal static func makeDocument(from source: Data, ofType sourceType: ContentType, _ settings: Settings) -> DocumentResult {
+
+        // Confirm the source type is correct
+        guard sourceType == .word3 else {
+            // This is an internal error
+            return .failure(ProcessError(code: .badConversionSource))
+        }
+
+        let wordData = [UInt8](source)
+        var byteIndex = PsionWord3Constants.HeaderLength
+        var textBytes: [UInt8] = []
+        var outerText: [String] = ["", ""]
+        var styles: [String:PsionWord3Style] = [:]
+        var emphases: [String:PsionWord3Style] = [:]
+        var blocks: [PsionWord3FormatBlock] = []
+        var document = Document()
+
+        // Check minimum file size: enough bytes to at least check the preamble
+        if wordData.count < PsionWord3Constants.PreambleLength {
+            return .failure(ProcessError(code: .badWord3FileType))
+        }
+
+        // Check the data preamble (C String of up to 15 chars plus `NUL`)
+        let preamble = String(decoding: wordData[0..<PsionWord3Constants.PreambleBytesLastIndex], as: UTF8.self)
+        if preamble != "PSIONWPDATAFILE" || wordData.count < PsionWord3Constants.HeaderLength {
+            // TODO Report actual file type
+            return .failure(ProcessError(code: .badWord3FileType))
+        }
+
+        // Check for encrypted files: look at file bytes 16 and 17
+        // NOTE We can't handle these yet as the decode algorithm remains unknown
+        if getWordValue(wordData[PsionWord3Constants.EncryptionBytesFirstIndex..<PsionWord3Constants.EncryptionBytesLastIndex]) == PsionWord3Constants.EncryptionMarker {
+            return .failure(ProcessError(code: .word3FileEncrypted))
+        }
+
+        // Iterate over the file's bytes to extract the records
+        var recordCounter: UInt16 = 0
+        while byteIndex < wordData.count - PsionWord3Constants.RecordHeaderLength {
+            // Get the 16-bit record type and 16-bit data length
+            let rawRecordType = getWordValue(wordData[byteIndex..<byteIndex + 2])
+            let recordType = PsionWord3RecordType(rawValue: rawRecordType) ?? .unknown
+            let recordDataLength = getWordValue(wordData[byteIndex + 2..<byteIndex + 4])
+
+            // Move index to start of record
+            byteIndex += PsionWord3Constants.RecordHeaderLength
+
+            // Make sure the whole record is present: a truncated file may end part-way through one
+            guard byteIndex + recordDataLength <= wordData.count else {
+                var error = ProcessError(code: .badWord3FileTruncated)
+                error.text = "Word file is truncated (record at \(String(format: "0x%04x", arguments: [byteIndex - PsionWord3Constants.RecordHeaderLength])) needs \(recordDataLength) bytes, but only \(wordData.count - byteIndex) remain)"
+                return .failure(error)
+            }
+
+            if settings.showInfo && recordType != .unknown {
+                let recordTypeName = PsionWord3Constants.RecordTypes[recordType.rawValue - 1]
+                log("Record of type \(recordTypeName) found at offset \(String(format: "0x%04x", arguments: [byteIndex - PsionWord3Constants.RecordHeaderLength])). Size: \(recordDataLength) bytes")
+            }
+
+            // Process the current record
+            switch recordType {
+                case .fileInfo:
+                    // We don't care about this beyond its size
+                    if recordDataLength != PsionWord3Constants.FileInfoRecordLength {
+                        var error = ProcessError(code: .badWord3RecordLengthFileInfo)
+                        error.text = "Bad file info record size (\(recordDataLength) not \(PsionWord3Constants.FileInfoRecordLength) bytes)"
+                        return .failure(error)
+                    }
+                case .printerConfig:
+                    // We don't care about this beyond its size
+                    if recordDataLength != PsionWord3Constants.PrinterConfigRecordLength {
+                        var error = ProcessError(code: .badWord3RecordLengthPrinterConfig)
+                        error.text = "Bad printer config record size (\(recordDataLength) not \(PsionWord3Constants.PrinterConfigRecordLength) bytes)"
+                        return .failure(error)
+                    }
+                case .printerDriver:
+                    // We don't care about this
+                    break
+                case .headerText:
+                    fallthrough
+                case .footerText:
+                    // Index in strings store is 0 for header, 1 for footer
+                    let index = recordType.rawValue - PsionWord3RecordType.headerText.rawValue
+                    outerText[index] = decodeWord3OuterText(wordData[byteIndex..<byteIndex + recordDataLength], index == 0, settings)
+                case .styleDefinition:
+                    // Check the fixed size
+                    if recordDataLength != PsionWord3Constants.StyleRecordLength {
+                        var error = ProcessError(code: .badWord3RecordLengthStyleDefinition)
+                        error.text = "Bad style definition record size (\(recordDataLength) not \(PsionWord3Constants.StyleRecordLength) bytes)"
+                        return .failure(error)
+                    }
+
+                    let style = decodeWord3Style(wordData[byteIndex..<byteIndex + PsionWord3Constants.StyleRecordLength], true, settings)
+                    styles[style.code] = style
+                case .emphasisDefinition:
+                    // Check the fixed size
+                    if recordDataLength != PsionWord3Constants.EmphasisRecordLength {
+                        var error = ProcessError(code: .badWord3RecordLengthEmphasisDefinition)
+                        error.text = "Bad emphasis definition record size (\(recordDataLength)) not \(PsionWord3Constants.EmphasisRecordLength) bytes"
+                        return .failure(error)
+                    }
+
+                    let emphasis = decodeWord3Style(wordData[byteIndex..<byteIndex + PsionWord3Constants.EmphasisRecordLength], false, settings)
+                    emphases[emphasis.code] = emphasis
+                case .bodyText:
+                    // Keep the raw CP 850 bytes: they are decoded per span in `makeParagraphs()`.
+                    // NOTE No bytes are removed or replaced here, so the block ranges remain valid
+                    textBytes = Array(wordData[byteIndex..<byteIndex + recordDataLength])
+                    if settings.showInfo {
+                        log("  Body text length \(textBytes.count) byte\(textBytes.count == 1 ? "" : "s")")
+                    }
+                case .blockInfo:
+                    blocks = decodeWord3StyleBlocks(wordData[byteIndex..<wordData.endIndex], textBytes.count, settings)
+                    // Set each block's style and emphasis according to the codes.
+                    // NOTE We loop this way so we don't change copy-on-write array members.
+                    for index in blocks.indices {
+                        blocks[index].style = styles[blocks[index].styleCode]
+                        blocks[index].emphasis = emphases[blocks[index].emphasisCode]
+                    }
+                case .unknown:
+                    var error = ProcessError(code: .badWord3RecordType)
+                    error.text = "Bad Word file record type \(rawRecordType) at \(String(format: "0x%04x", arguments: [byteIndex - PsionWord3Constants.RecordHeaderLength]))"
+                    return .failure(error)
+            }
+
+            recordCounter |= (1 << recordType.rawValue)
+            byteIndex += recordDataLength
+        }
+
+        // Check we have at least one of every record
+        if recordCounter != PsionWord3Constants.RecordTotal {
+            // Processing ended, but without a complete set of records
+            return .failure(ProcessError(code: .badWord3FileMissingRecords))
+        }
+
+        // Assemble the Document from the decoded text, blocks, styles and emphases
+        document.paragraphs = makeParagraphs(textBytes, blocks)
+
+        // Add the header and foot if requested to do so
+        if settings.word3.includeHeaders {
+            document.header = Paragraph(spans: [Span(text: outerText[0])])
+            document.footer = Paragraph(spans: [Span(text: outerText[1])])
+        }
+
+        return .success(document)
+    }
+
+
+    // MARK: - Conversion Helper Functions
 
     /**
      Convert Word Blocks into a sequence of Paragraphs.
@@ -45,7 +202,7 @@ extension PsionWord {
 
      - Returns: The document's paragraphs, with their text decoded to Unicode.
      */
-    internal static func makeParagraphs(_ rawText: [UInt8], _ blocks: [PsionWordFormatBlock]) -> [Paragraph] {
+    private static func makeParagraphs(_ rawText: [UInt8], _ blocks: [PsionWord3FormatBlock]) -> [Paragraph] {
 
         var paragraphs: [Paragraph] = []
         var currentParagraph = Paragraph()
@@ -85,7 +242,7 @@ extension PsionWord {
 
             if currentParagraph.spans.count == 1 {
                 // A paragraph's style is set by its first block
-                currentParagraph.type = paragraphType(block.styleCode)
+                currentParagraph.type = paragraphType(fromWord3StyleCode: block.styleCode)
                 currentParagraph.word3Style = block.style
             }
 
@@ -171,8 +328,10 @@ extension PsionWord {
     }
 
 
+    // MARK: - Word 3 Data Decoders
+
     /**
-     Map a Word 3 style code to a paragraph type.
+     Map a Psion Word 3 style code to a paragraph type.
 
      FROM 0.5.0
 
@@ -182,7 +341,7 @@ extension PsionWord {
      - Returns: The matching ParagraphType. Unrecognised codes, including user-defined
                 styles, are treated as body text.
      */
-    private static func paragraphType(_ styleCode: String) -> ParagraphType {
+    private static func paragraphType(fromWord3StyleCode styleCode: String) -> ParagraphType {
 
         // Bulleted and numbered lists, levels 1-6
         if let list = PsionWord3Constants.listInfo(styleCode) {
@@ -197,8 +356,6 @@ extension PsionWord {
         return .body
     }
 
-
-    // MARK: - Word 3 Data Decoders
 
     /**
      Parse a Psion Word Style or Emphasis record.
@@ -218,9 +375,10 @@ extension PsionWord {
         let index = data.startIndex
         style.code = String(bytes: data[index..<index + 2], encoding: .windowsCP1252) ?? ""
         style.name = String(decoding: data[index + 2..<index + 18], as: UTF8.self)
-        // Find the first nul
-        let range: Range<String.Index> = style.name.range(of: "\0")!
-        style.name = String(style.name[..<range.lowerBound])
+        // Find the first nul, if present
+        if let range: Range<String.Index> = style.name.range(of: "\0") {
+            style.name = String(style.name[..<range.lowerBound])
+        }
 
         if style.name.isEmpty {
             style.name = "Unknown"
@@ -309,9 +467,9 @@ extension PsionWord {
 
      - Returns: An array of internal style records.
      */
-    internal static func decodeWord3StyleBlocks(_ data: ArraySlice<UInt8>, _ textLength: Int, _ settings: Settings) -> [PsionWordFormatBlock] {
+    internal static func decodeWord3StyleBlocks(_ data: ArraySlice<UInt8>, _ textLength: Int, _ settings: Settings) -> [PsionWord3FormatBlock] {
 
-        var blocks: [PsionWordFormatBlock] = []
+        var blocks: [PsionWord3FormatBlock] = []
         var recordIndex = data.startIndex
         var textIndex = 0
 
@@ -329,7 +487,7 @@ extension PsionWord {
 
             // NOTE The loop condition and the guard ensure that, for every block,
             //      0 <= startIndex <= endIndex <= textLength - 1
-            var block = PsionWordFormatBlock()
+            var block = PsionWord3FormatBlock()
             block.styleCode = styleCode
             block.emphasisCode = emphasisCode
             block.startIndex = textIndex
