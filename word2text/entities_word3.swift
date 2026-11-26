@@ -54,14 +54,14 @@ public struct PsionWord3Style {
     public var leftIndent: Int                         = 0              // This and all remaining members
     public var rightIndent: Int                        = 0              // are Style only
     public var firstIdent: Int                         = 0
-    public var alignment: PsionWordAlignment           = .left
+    public var alignment: PsionWord3TextAlignment           = .left
     public var lineSpacing: Int                        = 240
     public var spaceAbovePara: Int                     = 0
     public var spaceBelowPara: Int                     = 0
-    public var spacing: PsionWordSpacing               = .noSpacing
+    public var spacing: PsionWord3WordSpacing               = .noSpacing
     public var outlineLevel: Int                       = 0
     public var tabPositions: [Int]                     = []
-    public var tabTypes: [PsionWordTabType]            = []
+    public var tabTypes: [PsionWord3TabType]            = []
 }
 
 
@@ -103,7 +103,7 @@ public struct PsionWord3FormatBlock {
     Text alignment options.
     NOTE We require raw values for these
 */
-public enum PsionWordAlignment: Int {
+public enum PsionWord3TextAlignment: Int {
 
     case left                                   = 0
     case right                                  = 1
@@ -116,7 +116,7 @@ public enum PsionWordAlignment: Int {
 /*
     Paragraph spacing options
 */
-public enum PsionWordSpacing {
+public enum PsionWord3WordSpacing {
 
     case keepWithNext
     case keepTogether
@@ -124,7 +124,7 @@ public enum PsionWordSpacing {
     case noSpacing
 }
 
-extension PsionWordSpacing {
+extension PsionWord3WordSpacing {
 
     mutating func set(_ value: UInt8) {
         if value & 0x01 > 0 {
@@ -143,7 +143,7 @@ extension PsionWordSpacing {
 /*
     Tabulation options
 */
-public enum PsionWordTabType: Int {
+public enum PsionWord3TabType: Int {
 
     case left                                   = 0
     case right                                  = 1

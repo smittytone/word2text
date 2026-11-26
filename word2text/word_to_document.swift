@@ -426,7 +426,7 @@ extension PsionWord {
 
         // Text alignment
         let alignValue: Int = getWordValue(data[index + 34..<index + 36])
-        style.alignment = PsionWordAlignment(rawValue: alignValue) ?? .left
+        style.alignment = PsionWord3TextAlignment(rawValue: alignValue) ?? .left
 
         // Spacing values
         style.lineSpacing = getWordValue(data[index + 36..<index + 38])
@@ -444,7 +444,7 @@ extension PsionWord {
             for _ in 0..<tabCount {
                 style.tabPositions.append(getWordValue(data[tabIndex..<tabIndex + 2]))
                 let tabType: Int = getWordValue(data[tabIndex + 2..<tabIndex + 4])
-                style.tabTypes.append(PsionWordTabType(rawValue: tabType) ?? .left)
+                style.tabTypes.append(PsionWord3TabType(rawValue: tabType) ?? .left)
                 tabIndex += 4
             }
         }

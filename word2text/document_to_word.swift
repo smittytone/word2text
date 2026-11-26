@@ -220,11 +220,11 @@ extension PsionWord {
         for slot in 0..<8 {
             if slot < tabs.count {
                 appendWord(&record, tabs[slot])
-                let tabType: PsionWordTabType = slot < style.tabTypes.count ? style.tabTypes[slot] : .left
+                let tabType: PsionWord3TabType = slot < style.tabTypes.count ? style.tabTypes[slot] : .left
                 appendWord(&record, tabType.rawValue)
             } else {
                 appendWord(&record, (slot + 1) * 720)
-                appendWord(&record, PsionWordTabType.left.rawValue)
+                appendWord(&record, PsionWord3TabType.left.rawValue)
             }
         }
 
