@@ -70,10 +70,6 @@ struct Word2Text {
                 argIsAValue = false
             } else {
                 switch argument {
-                    case "-v", "--verbose":
-                        settings.showInfo = true
-                    case "-o", "--outer":
-                        settings.word3.includeHeaders = true
                     case "-f", "--force":
                         settings.forceWrite = true
                     case "-m", "--markdown":
@@ -82,8 +78,12 @@ struct Word2Text {
                         settings.haltOnFirstError = true
                     case "-r", "--reverse":
                         settings.reverseConversion = true
+                    case "-o", "--outer":
+                        settings.word3.includeHeaders = true
                     case "-c", "--compatiblename":
                         settings.word3.fixName = true
+                    case "-v", "--verbose":
+                        settings.showInfo = true
                     case "--stdout":
                         settings.outputAsFile = false
                     case "-h", "-help", "--help":
@@ -186,10 +186,9 @@ struct Word2Text {
      */
     private static func checkFiles(_ files: [String]) -> [String] {
 
-        let fm = FileManager.default
         var validFiles: [String] = []
         for file in files {
-            if fm.fileExists(atPath: file) {
+            if FileManager.default.fileExists(atPath: file) {
                 validFiles.append(file)
             } else {
                 Stdio.reportError("File \(file) cannot be located -- it will be ignored")
@@ -209,14 +208,13 @@ struct Word2Text {
     private static func processFiles(_ settings: Settings) {
 
         for filepath in settings.files {
-            switch Path.getFileContent(filepath) {
+            switch Path.getFileData(filepath) {
                 case .failure(let error):
                     Stdio.reportError(error.localizedDescription)
                 case .success(let filedata):
-                    let data = Data(filedata)
                     if settings.reverseConversion {
                         // Convert text or Markdown to WRD
-                        guard let sourceText = String(bytes: data, encoding: .utf8) else {
+                        guard let sourceText = String(bytes: filedata, encoding: .utf8) else {
                             outputWord(.failure(ProcessError(code:.fileNotUTF8)), settings, filepath)
                             continue
                         }
@@ -224,14 +222,14 @@ struct Word2Text {
                         // FROM 0.5.0 -- Check file extension
                         let sourceType: ContentType = (filepath as NSString).pathExtension.uppercased().hasPrefix("T") ? .plainText : .markdown
 
-                        let result: DataResult = !data.isEmpty
+                        let result: DataResult = !filedata.isEmpty
                         ? PsionWord.encodeWord3(using: sourceText, ofType: sourceType, settings)
                         : .failure(ProcessError(code: .fileEmpty))
                         outputWord(result, settings, filepath)
                     } else {
                         // Convert WRD to text or Markdown
-                        let result: StringResult = !data.isEmpty
-                        ? PsionWord.decodeWord3(using: data, settings)
+                        let result: StringResult = !filedata.isEmpty
+                        ? PsionWord.decodeWord3(using: filedata, settings)
                         : .failure(ProcessError(code: .fileEmpty))
                         outputText(result, settings, filepath)
                     }
