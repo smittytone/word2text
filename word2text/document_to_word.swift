@@ -49,6 +49,9 @@ extension PsionWord {
         var textBytes: [UInt8] = []
         var blocks: [(length: Int, style: String, emphasis: String)] = []
         var listNumbers = [Int](repeating: 0, count: PsionWord3Constants.ListLevelMax)
+        if settings.showInfo {
+            log("Evaluating \(document.paragraphs.count) paragraphs.")
+        }
 
         for paragraph in document.paragraphs {
             let style = word3StyleCode(for: paragraph.type)
@@ -87,6 +90,9 @@ extension PsionWord {
         if textBytes.isEmpty {
             textBytes.append(UInt8(PsionWord3Constants.ParagraphMarker))
             blocks.append((1, "BT", "NN"))
+            if settings.showInfo {
+                log("No text in the file -- meeting Word 3’s minimum paragraph count with an empty one.")
+            }
         }
 
         // The final block covers an imaginary extra separator byte
@@ -99,6 +105,9 @@ extension PsionWord {
             return .failure(error)
         }
 
+        if settings.showInfo {
+            log("Generating the Word 3 records and adding them to the file.")
+        }
         // File header (unencrypted)
         var psionFile: [UInt8] = Array("PSIONWPDATAFILE".utf8) + [0]
         // Format version
@@ -152,6 +161,9 @@ extension PsionWord {
 
         appendRecord(&psionFile, .blockInfo, blockBytes)
 
+        if settings.showInfo {
+            log("Word 3 file assembled.")
+        }
         return .success(Data(psionFile))
     }
 

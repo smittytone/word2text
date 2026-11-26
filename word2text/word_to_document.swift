@@ -473,6 +473,10 @@ extension PsionWord {
         var recordIndex = data.startIndex
         var textIndex = 0
 
+        // FROM 0.5.0
+        // Prepare the format string for log output
+        let format = "%0\(String(textLength).count)d"
+
         // Stop when the text is used up, or when there isn't a whole block unit left to read
         while textIndex < textLength && recordIndex + PsionWord3Constants.BlockUnitLength <= data.endIndex {
             let blockLength = getWordValue(data[recordIndex..<recordIndex + 2])
@@ -495,7 +499,9 @@ extension PsionWord {
             blocks.append(block)
 
             if settings.showInfo {
-                log("  Text bytes range \(block.startIndex)-\(block.endIndex) has style code \(styleCode) and emphasis code \(emphasisCode)")
+                let start = String(format: format, arguments: [block.startIndex])
+                let end = String(format: format, arguments: [block.endIndex])
+                log("  Text bytes range \(start)-\(end) has style code \(styleCode) and emphasis code \(emphasisCode)")
             }
 
             textIndex += blockLength

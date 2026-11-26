@@ -51,11 +51,11 @@ extension PsionWord {
 
         var document = Document()
         if sourceType == .plainText {
-            document.paragraphs = makePlainTextParagraphs(source)
+            document.paragraphs = makePlainTextParagraphs(source, settings)
             return .success(document)
         }
 
-        for item in makeMarkdownParagraphs(source) {
+        for item in makeMarkdownParagraphs(source, settings) {
             // Fenced code is passed through verbatim, as a single unformatted span
             let spans = item.parseInline ? parseMarkdownSpans(item.text) : [Span(text: item.text)]
             document.paragraphs.append(Paragraph(type: item.type, spans: spans))
@@ -81,7 +81,7 @@ extension PsionWord {
 
      - Returns: The text's paragraphs.
      */
-    private static func makePlainTextParagraphs(_ text: String) -> [Paragraph] {
+    private static func makePlainTextParagraphs(_ text: String, _ settings: Settings = Settings()) -> [Paragraph] {
 
         var paragraphs: [Paragraph] = []
         for line in text.normalised.split(separator: "\n", omittingEmptySubsequences: true) {
@@ -90,6 +90,10 @@ extension PsionWord {
             }
 
             paragraphs.append(Paragraph(type: .body, spans: [Span(text: String(line))]))
+        }
+
+        if settings.showInfo {
+            log("\(paragraphs.count) paragraphs processed from source text file.")
         }
 
         return paragraphs
@@ -108,7 +112,7 @@ extension PsionWord {
 
      - Returns: An array of paragraphs: type, raw text, and whether the text needs inline processing.
      */
-    private static func makeMarkdownParagraphs(_ markdown: String) -> [(type: ParagraphType, text: String, parseInline: Bool)] {
+    private static func makeMarkdownParagraphs(_ markdown: String, _ settings: Settings = Settings()) -> [(type: ParagraphType, text: String, parseInline: Bool)] {
 
         var paragraphs: [(type: ParagraphType, text: String, parseInline: Bool)] = []
         var current: (type: ParagraphType, text: String)? = nil
@@ -173,6 +177,10 @@ extension PsionWord {
                 flush()
                 listIndents = []
                 fence = String(trimmed.prefix(3))
+
+                if settings.showInfo {
+                    log("Code fence found in source file.")
+                }
                 continue
             }
 
@@ -212,6 +220,10 @@ extension PsionWord {
                 flush()
                 listIndents = []
                 paragraphs.append((.heading(level: heading.level), heading.text, true))
+
+                if settings.showInfo {
+                    log("level \(heading.level) heading found in source file.")
+                }
                 continue
             }
 
@@ -222,6 +234,9 @@ extension PsionWord {
                     flush()
                     let level = listLevel(indentWidth(line))
                     current = (.bulletItem(level: level, bullet: nil), rest.trimmingCharacters(in: .whitespaces))
+                    if settings.showInfo {
+                        log("Bullet item (indent: \(level)) found in source file.")
+                    }
                     continue
                 }
             }
@@ -236,6 +251,9 @@ extension PsionWord {
                         flush()
                         let level = listLevel(indentWidth(line))
                         current = (.numberItem(level: level, number: Int(digits)), afterDelimiter.trimmingCharacters(in: .whitespaces))
+                        if settings.showInfo {
+                            log("Numbered item (indent: \(level)) found in source file.")
+                        }
                         continue
                     }
                 }
@@ -255,6 +273,10 @@ extension PsionWord {
         }
 
         flush()
+
+        if settings.showInfo {
+            log("\(paragraphs.count) paragraphs processed from source Markdown file.")
+        }
         return paragraphs
     }
 
