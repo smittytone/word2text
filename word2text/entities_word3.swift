@@ -152,6 +152,8 @@ public enum PsionWordTabType: Int {
 
 
 /*
+    DISCARD BEFORE RELEASE
+
     Additional date required for conversion to Word 3 files.
 
     Includes footer and header format strings, and
